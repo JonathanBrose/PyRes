@@ -251,7 +251,9 @@ class TestAlternatingPath(unittest.TestCase):
         self.problem3.parse(Lexer(self.spec3))
 
     def test_initialization(self):
-
+        """
+        Test if the initialization works as expected
+        """
         ap = AlternatingPath(self.problem1)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
         self.assertEqual(self.problem1.clauses[2:], ap.selected.clauses)
@@ -270,6 +272,9 @@ class TestAlternatingPath(unittest.TestCase):
         self.assertEqual(8, ap.limit)
 
     def test_selection(self):
+        """
+        Test if the correct axioms are selected
+        """
         ap = AlternatingPath(self.problem1)
         selection = ap.saturate()
         # check that all clauses of the problem were selected.
@@ -292,8 +297,10 @@ class TestAlternatingPath(unittest.TestCase):
         for clause in self.problem3.clauses[:-2]:
             self.assertIn(clause, selection.clauses)
 
-
     def test_limit(self):
+        """
+        Make sure the depth-limit is working
+        """
         indices = [11, 2, 8, 5, 0, 4, 7, 3, 9, 1, 6, 10]
 
         def assert_limit(limit, expected_len):
@@ -308,6 +315,13 @@ class TestAlternatingPath(unittest.TestCase):
         assert_limit(5, 6)
         assert_limit(8, 9)
         assert_limit(20, len(indices))
+
+    def test_still_solvable(self):
+        """
+        Test if the reduced Problem is still solvable by pyres
+        """
+        # TODO: Example for testing is missing
+        pass
 
 
 if __name__ == '__main__':
