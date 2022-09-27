@@ -5,7 +5,7 @@ from fofspec import FOFSpec
 from version import version
 from lexer import Token, Lexer
 from clausesets import ClauseSet
-from alternating_path import AlternatingPath
+from alternating_path2 import AlternatingPath
 
 max_depth = float('inf')
 
