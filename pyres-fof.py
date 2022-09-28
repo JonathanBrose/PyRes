@@ -57,6 +57,11 @@ Options:
   Do not add equality axioms. This makes the prover incomplete for
   equality problems.
 
+  -A=<limit>
+ --alternating-path-selection=<limit>
+   Use alternating path premise selection to select only relevant axioms.
+   limit is the max length of an alternating path, starting from the conjecture
+
 A reasonable command line to run the prover would be:
 
   ./pyres-fof.py -tifb -HPickGiven5 -nlargest EXAMPLES/PUZ001+1.p
@@ -93,6 +98,8 @@ from resource import RLIMIT_STACK, setrlimit, getrlimit
 import getopt
 from signal import  signal, SIGXCPU
 from resource import getrusage, RUSAGE_SELF
+
+from alternating_path import AlternatingPath
 from version import version
 from lexer import Token,Lexer
 from derivations import enableDerivationOutput,disableDerivationOutput,Derivable,flatDerivation
@@ -108,12 +115,14 @@ suppressEqAxioms = False
 silent           = False
 indexed          = False
 proofObject      = False
+alternatingPath  = False
+alternatingPathLimit = float('inf')
 
 def processOptions(opts):
     """
     Process the options given
     """
-    global silent, indexed, suppressEqAxioms, proofObject
+    global silent, indexed, suppressEqAxioms, proofObject, alternatingPath, alternatingPathLimit
 
     params = SearchParams()
     for opt, optarg in opts:
@@ -151,6 +160,10 @@ def processOptions(opts):
                 sys.exit(1)
         elif opt=="-S" or opt=="--suppress-eq-axioms":
             suppressEqAxioms = True
+        elif opt=="-A" or opt == "--alternating-path-selection":
+            alternatingPath = True
+            if optarg:
+                alternatingPathLimit = int(optarg)
 
     return params
 
@@ -186,7 +199,7 @@ if __name__ == '__main__':
 
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:],
-                                       "hsVpitfbH:n:S",
+                                       "hsVpitfbH:n:SA:",
                                        ["help",
                                         "silent",
                                         "version",
@@ -196,8 +209,9 @@ if __name__ == '__main__':
                                         "forward-subsumption",
                                         "backward-subsumption"
                                         "given-clause-heuristic=",
-                                        "neg-lit-selection="
-                                        "supress-eq-axioms"])
+                                        "neg-lit-selection=",
+                                        "supress-eq-axioms",
+                                        "alternating-path-selection"])
     except getopt.GetoptError as err:
         print(sys.argv[0],":", err)
         sys.exit(1)
@@ -211,6 +225,9 @@ if __name__ == '__main__':
     if not suppressEqAxioms:
         problem.addEqAxioms()
     cnf = problem.clausify()
+
+    if alternatingPath:
+        cnf = AlternatingPath(cnf, alternatingPathLimit).select_clauses()
 
     state = ProofState(params, cnf, silent, indexed)
     res = state.saturate()

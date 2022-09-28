@@ -10,7 +10,7 @@ from alternating_path import AlternatingPath
 max_depth = float('inf')
 
 
-def processOptions(opts):
+def process_options(opts):
     """
     Process the options given
     """
@@ -33,7 +33,7 @@ if __name__ == '__main__':
         print(sys.argv[0], ":", err)
         sys.exit(1)
 
-    processOptions(opts)
+    process_options(opts)
 
     problem = FOFSpec()
     for file in args:
