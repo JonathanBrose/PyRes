@@ -5,8 +5,6 @@ import getopt
 
 from fofspec import FOFSpec
 from version import version
-from lexer import Token, Lexer
-from clausesets import ClauseSet
 from alternating_path import AlternatingPath
 
 max_depth = float('inf')
@@ -16,7 +14,7 @@ def processOptions(opts):
     """
     Process the options given
     """
-    global max_depth, suppressEqAxioms
+    global max_depth
     for opt, optarg in opts:
         if opt == "-h" or opt == "--help":
             print("pyres-simple.py " + version)
@@ -40,17 +38,9 @@ if __name__ == '__main__':
     problem = FOFSpec()
     for file in args:
         problem.parse(file)
-
+    # problem.addEqAxioms()
     cnf = problem.clausify()
-    # problem = ClauseSet()
-    #
-    # for file in args:
-    #     fp = open(file, "r")
-    #     input = fp.read()
-    #     fp.close()
-    #     lex = Lexer(input)
-    #     problem.parse(lex)
 
     ap = AlternatingPath(cnf, limit=max_depth)
-    selection = ap.saturate()
+    selection = ap.select_clauses()
     print(selection)

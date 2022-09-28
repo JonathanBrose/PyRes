@@ -76,7 +76,7 @@ class AlternatingPath(object):
                         # Then we add the clause index with the connecting literal index as a path.
         return paths
 
-    def saturate(self):
+    def select_clauses(self):
         """
         Main loop to find the relevant clauses.
         For each iteration the clauses of relevance k are found.
@@ -281,19 +281,19 @@ class TestAlternatingPath(unittest.TestCase):
         Test if the correct axioms are selected
         """
         ap = AlternatingPath(self.problem1)
-        selection = ap.saturate()
+        selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
         for clause in self.problem1.clauses:
             self.assertIn(clause, selection.clauses)
 
         ap = AlternatingPath(self.problem2)
-        selection = ap.saturate()
+        selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
         for clause in self.problem2.clauses:
             self.assertIn(clause, selection.clauses)
 
         ap = AlternatingPath(self.problem3)
-        selection = ap.saturate()
+        selection = ap.select_clauses()
         self.assertEqual(12, len(selection))
         # the last two should not be selected
         for clause in self.problem3.clauses[-2:]:
@@ -310,7 +310,7 @@ class TestAlternatingPath(unittest.TestCase):
 
         def assert_limit(limit, expected_len):
             ap = AlternatingPath(self.problem2, limit=limit)
-            selection = ap.saturate()
+            selection = ap.select_clauses()
             self.assertEqual(expected_len, len(selection))
 
             for clause, i in zip(selection.clauses, indices[:expected_len]):
