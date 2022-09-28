@@ -226,8 +226,10 @@ if __name__ == '__main__':
         problem.addEqAxioms()
     cnf = problem.clausify()
 
+    ap = None
     if alternatingPath:
-        cnf = AlternatingPath(cnf, alternatingPathLimit).select_clauses()
+        ap = AlternatingPath(cnf, alternatingPathLimit)
+        cnf = ap.select_clauses()
 
     state = ProofState(params, cnf, silent, indexed)
     res = state.saturate()
@@ -262,7 +264,9 @@ if __name__ == '__main__':
             print("# SZS output end Saturation")
             disableDerivationOutput()
     print(state.statisticsStr())
-
+    if alternatingPath:
+        print("# ------- AP Selection -------")
+        print(ap.statistics_str())
     # We use the resources interface to get and print the CPU time
     resources = getrusage(RUSAGE_SELF)
     print("# -------- CPU Time ---------")

@@ -1,3 +1,4 @@
+import textwrap
 import unittest
 from lexer import Lexer
 from clausesets import ClauseSet
@@ -16,8 +17,22 @@ def find_complementary_mgu(clause1, lit1, clause2, lit2):
 
 
 class AlternatingPath(object):
+    clause_count = 0
+
+    @property
+    def selected_count(self):
+        return len(self.selected)
+
+    @property
+    def depth(self):
+        """
+        The current relevance depth of the algorithm.
+        """
+        return len(self.path_levels) - 1
 
     def __init__(self, clauses, limit=float('inf')):
+        self.clause_count = len(clauses.clauses)
+
         self.limit = limit  # limit how deep the selection is run
         # start the algorithmen with the conjecture and any other hypotheses etc...
         self.selected = ClauseSet([c for c in clauses.clauses if c.type in ["negated_conjecture", "plain"]])
@@ -41,13 +56,6 @@ class AlternatingPath(object):
         except ValueError:
             self.selected.addClause(clause)
             return len(self.selected.clauses) - 1
-
-    @property
-    def depth(self):
-        """
-        The current relevance depth of the algorithm.
-        """
-        return len(self.path_levels) - 1
 
     def find_next_paths(self, clause_index, lit_index):
         """
@@ -101,6 +109,17 @@ class AlternatingPath(object):
             self.path_levels.append(next_level)
 
         return self.selected
+
+    def statistics_str(self):
+        """
+        Return the selection statistics in string form ready for
+        output.
+        """
+        return textwrap.dedent(f"""\
+            # Initial clauses    : {self.clause_count}
+            # Selected clauses   : {self.selected_count}
+            # Max path depth     : {self.depth}
+            # Depth limit        : {self.limit}""")
 
 
 class TestAlternatingPath(unittest.TestCase):
@@ -320,6 +339,12 @@ class TestAlternatingPath(unittest.TestCase):
         assert_limit(5, 6)
         assert_limit(8, 9)
         assert_limit(20, len(indices))
+
+    def test_statistics(self):
+        ap = AlternatingPath(self.problem3)
+        selection = ap.select_clauses()
+        self.assertEqual(12, ap.selected_count)
+        self.assertEqual(14, ap.clause_count)
 
     def test_still_solvable(self):
         """
