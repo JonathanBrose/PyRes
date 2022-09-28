@@ -3,6 +3,7 @@ from lexer import Lexer
 from clausesets import ClauseSet
 from unification import mgu
 
+
 # TODO: Sonderbehandlung für equality ??
 
 def find_complementary_mgu(clause1, lit1, clause2, lit2):
@@ -25,11 +26,11 @@ class AlternatingPath(object):
         # the path_levels contain a mapping of
         self.path_levels = [
             [(sci, -1) for sci in range(len(self.selected))]  # level zero contains the starting clauses
-        ]  # schema for each level = [(selectedClauseIndex, litIndex)]
+        ]  # schema for each level = [(selected_clause_index, lit_index)]
 
     def move_to_selected(self, clause):
         """
-        moves the clause from unprocessed to selected and returns the index in selected
+        Moves the clause from self.unprocessed to self.selected and returns the index in self.selected
         :param clause: the clause to move
         :return: the index auf clause in the selected list
         """
@@ -52,7 +53,8 @@ class AlternatingPath(object):
         """
         Finds clauses from the unprocessed set that are reachable by an alternating path of length 1
         :param clause_index: clause_index to start the search from
-        :param lit_index: literal_index that should be disabled in clause to fullfill the alternating path condition of a literal switch
+        :param lit_index: literal_index that should be disabled in clause
+        to fulfill the alternating path condition of a literal switch
         :return: reachable clauses
         """
         paths = []
@@ -65,10 +67,13 @@ class AlternatingPath(object):
                     self.unprocessed.getResolutionLiterals(clause.getLiteral(lit))
                 for (cl2, lit2) in partners:
                     sigma = find_complementary_mgu(clause, lit, cl2, lit2)
-                    # If we find a mgu that results in a complementary literal pair, the condiation for an alternating path is met.
-                    # Then we add the clause index with the connecting literal index as a path.
+                    # If we find a mgu that results in a complementary literal pair,
+                    # the condition for an alternating path is met.
+                    # (We made sure that we are switching literals above)
+
                     if sigma is not None:
                         paths.append((cl2, lit2))
+                        # Then we add the clause index with the connecting literal index as a path.
         return paths
 
     def saturate(self):
@@ -83,15 +88,15 @@ class AlternatingPath(object):
         while self.depth < self.limit:
             current_level = self.path_levels[-1]
             new_paths = []
-            # iterate over the clauses
+            # Iterate over the clauses
             for clause_index, lit_index in current_level:
                 new_paths += self.find_next_paths(clause_index, lit_index)
 
-            # if we didn't find any new paths, we stop.
+            # If we didn't find any new paths, we stop.
             if not new_paths:
                 break
 
-            # move the now used clauses from unprocessed to selected
+            # Move the now used clauses from unprocessed to selected
             next_level = [(self.move_to_selected(c), lit_index) for c, lit_index in new_paths]
             self.path_levels.append(next_level)
 
@@ -105,8 +110,8 @@ class TestAlternatingPath(unittest.TestCase):
 
     def setUp(self):
         """
-        Setup function for unit tests. Initialize
-        variables needed throughout the tests.
+        Setup function for unit tests.
+        Initialize the problems that will be used in the tests.
         """
         print()
         self.spec1 = """
