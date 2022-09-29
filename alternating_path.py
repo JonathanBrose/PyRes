@@ -30,9 +30,9 @@ class AlternatingPath(object):
         """
         return len(self.path_levels) - 1
 
-    def __init__(self, clauses, limit=float('inf')):
+    def __init__(self, clauses, limit=float('inf'), verbose=False):
         self.clause_count = len(clauses.clauses)
-
+        self.verbose = verbose
         self.limit = limit  # limit how deep the selection is run
         # start the algorithmen with the conjecture and any other hypotheses etc...
         self.selected = ClauseSet([c for c in clauses.clauses if c.type in ["negated_conjecture", "plain"]])
@@ -55,6 +55,8 @@ class AlternatingPath(object):
             return self.selected.clauses.index(clause)
         except ValueError:
             self.selected.addClause(clause)
+            if self.verbose:
+                print(f"# d:{self.depth} -> {clause}")
             return len(self.selected.clauses) - 1
 
     def find_next_paths(self, clause_index, lit_index):
