@@ -12,83 +12,75 @@ def find_complementary_mgu(clause1, lit1, clause2, lit2):
     sigma = mgu(l1.atom, l2.atom)
     return sigma
 
+def selectAlternating(litlist, alt_lit_index):
+    selected = litlist[:alt_lit_index]
+    if len(litlist) - alt_lit_index > 1:
+        selected += litlist[alt_lit_index+1:]
+    return selected
+
 
 class AlternatingPath(object):
+    """
+    This class is used to select
+    """
 
-    @property
-    def selected_count(self):
-        return len(self.selected)
+    def __init__(self, clauses, limit=float('inf'), indexed=False, verbose=False):
+        self.clause_count = len(clauses.clauses)
+        self.limit = limit  # limit how deep the selection is run
+        self.indexed = indexed
+        self.verbose = verbose
+        # start the algorithm with the conjecture and any other hypotheses etc...
+        # the selected clauses are stored as nested lists, one list for each relevance level.
+        self.selected = [
+            ClauseSet([c for c in clauses.clauses if c.type in ["negated_conjecture"]])
+        ]
+        # all the other clauses like axioms go into the unprocessed set.
+        unprocessed = [c for c in clauses.clauses if c not in self.selected[0].clauses]
+        self.unprocessed = ClauseSet(unprocessed) if not indexed else IndexedClauseSet(unprocessed)
 
     @property
     def depth(self):
         """
         The current relevance depth of the algorithm.
         """
-        return len(self.path_levels) - 1
+        return len(self.selected) - 1
 
-    def __init__(self, clauses, limit=float('inf'), verbose=False, indexed=False):
-        self.clause_count = len(clauses.clauses)
-        self.verbose = verbose
-        self.limit = limit  # limit how deep the selection is run
-        # start the algorithmen with the conjecture and any other hypotheses etc...
-        self.selected = [c for c in clauses.clauses if c.type in ["negated_conjecture", "plain"]]
-        # all the other clauses like axioms go into the unprocessed set.
-        self.unprocessed = [c for c in clauses.clauses if c not in self.selected]
-
-        if indexed:
-            self.selected = IndexedClauseSet(self.selected)
-            self.unprocessed = IndexedClauseSet(self.unprocessed)
-        else:
-            self.selected = ClauseSet(self.selected)
-            self.unprocessed = ClauseSet(self.unprocessed)
-
-        # the path_levels contain a mapping of
-        self.path_levels = [
-            [(sci, -1) for sci in range(len(self.selected))]  # level zero contains the starting clauses
-        ]  # schema for each level = [(selected_clause_index, lit_index)]
-
-    def move_to_selected(self, clause):
+    @property
+    def selected_flat(self):
         """
-        Moves the clause from self.unprocessed to self.selected and returns the index in self.selected
-        :param clause: the clause to move
-        :return: the index auf clause in the selected list
+        Returns all the selected clauses in one flat list
         """
-        if clause in self.unprocessed.clauses:
-            self.unprocessed.clauses.remove(clause)
-        try:
-            return self.selected.clauses.index(clause)
-        except ValueError:
-            self.selected.addClause(clause)
-            if self.verbose:
-                print(f"# d:{self.depth} -> {clause}")
-            return len(self.selected.clauses) - 1
+        return ClauseSet([clause for cs in self.selected for clause in cs.clauses])
 
-    def find_next_paths(self, clause_index, lit_index):
+    @property
+    def selected_count(self):
+        return len(self.selected_flat)
+
+    def find_next_paths(self, clause):
         """
         Finds clauses from the unprocessed set that are reachable by an alternating path of length 1
-        :param clause_index: clause_index to start the search from
-        :param lit_index: literal_index that should be disabled in clause
-        to fulfill the alternating path condition of a literal switch
+        :param clause: clause to start the search from
         :return: reachable clauses
         """
-        paths = []
-        clause = self.selected.clauses[clause_index]
+
         for lit in range(len(clause)):
-            if lit == lit_index:  # skip the literal that was last used in the path
-                continue
             if clause.getLiteral(lit).isInferenceLit():
-                partners = \
-                    self.unprocessed.getResolutionLiterals(clause.getLiteral(lit))
+                partners = self.unprocessed.getResolutionLiterals(clause.getLiteral(lit))
                 for (cl2, lit2) in partners:
                     sigma = find_complementary_mgu(clause, lit, cl2, lit2)
-                    # If we find a mgu that results in a complementary literal pair,
-                    # the condition for an alternating path is met.
-                    # (We made sure that we are switching literals above)
-
+                    #  If we find a unifier that results in a complementary literal pair,
+                    #  then we add the new clause to the list if it is not already in.
+                    #  This way duplicates are avoided upfront.
                     if sigma is not None:
-                        paths.append((cl2, lit2))
-                        # Then we add the clause index with the connecting literal index as a path.
-        return paths
+                        if cl2 not in self.selected[-1].clauses:
+                            self.unprocessed.extractClause(cl2)
+                            cl2.selectInferenceLitsAll(lambda litlist: selectAlternating(litlist, lit2))
+                            self.selected[-1].addClause(cl2)
+                            if self.verbose:
+                                print(f"# ({self.depth}) selected {cl2}")
+                        else:
+                            # multiple paths to a clause means, all literals can now be used for more paths
+                            cl2.selectInferenceLitsAll(lambda litlist: litlist)
 
     def select_clauses(self):
         """
@@ -99,22 +91,20 @@ class AlternatingPath(object):
         The loop stops when all relevant clauses are processed, or if the depth-limit is reached.
         :return: ClauseSet with the selected clauses
         """
-        while self.depth < self.limit:
-            current_level = self.path_levels[-1]
-            new_paths = []
-            # Iterate over the clauses
-            for clause_index, lit_index in current_level:
-                new_paths += self.find_next_paths(clause_index, lit_index)
+        while self.depth < self.limit and self.unprocessed.clauses:
+            current_level = self.selected[-1]
+            next_level = ClauseSet()
+            self.selected.append(next_level)
 
-            # If we didn't find any new paths, we stop.
-            if not new_paths:
+            # for each clause of the current relevance level we check for more paths
+            for clause in current_level.clauses:
+                self.find_next_paths(clause)
+
+            # if we didn't find any new paths, we stop.
+            if not next_level.clauses:
                 break
 
-            # Move the now used clauses from unprocessed to selected
-            next_level = [(self.move_to_selected(c), lit_index) for c, lit_index in new_paths]
-            self.path_levels.append(next_level)
-
-        return self.selected
+        return self.selected_flat
 
     def statistics_str(self):
         """
@@ -286,15 +276,13 @@ class TestAlternatingPath(unittest.TestCase):
         """
         ap = AlternatingPath(self.problem1)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(self.problem1.clauses[2:], ap.selected.clauses)
-        self.assertEqual(self.problem1.clauses[:2], ap.unprocessed.clauses)
-        self.assertEqual([(0, -1), (1, -1), (2, -1), (3, -1), (4, -1), (5, -1)], ap.path_levels[0])
+        self.assertEqual(self.problem1.clauses[-1:], ap.selected[0].clauses)
+        self.assertEqual(self.problem1.clauses[:-1], ap.unprocessed.clauses)
 
         ap = AlternatingPath(self.problem2)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(self.problem2.clauses[-1:], ap.selected.clauses)
+        self.assertEqual(self.problem2.clauses[-1:], ap.selected[0].clauses)
         self.assertEqual(self.problem2.clauses[:-1], ap.unprocessed.clauses)
-        self.assertEqual([(0, -1)], ap.path_levels[0])
 
         # make sure that setting the limit works
         self.assertEqual(float('inf'), ap.limit)
@@ -345,6 +333,7 @@ class TestAlternatingPath(unittest.TestCase):
         indices = [11, 2, 8, 5, 0, 4, 7, 3, 9, 1, 6, 10]
 
         def assert_limit(limit, expected_len):
+            self.setUp()
             ap = AlternatingPath(self.problem2, limit=limit)
             selection = ap.select_clauses()
             self.assertEqual(expected_len, len(selection))
@@ -356,13 +345,6 @@ class TestAlternatingPath(unittest.TestCase):
         assert_limit(5, 6)
         assert_limit(8, 9)
         assert_limit(20, len(indices))
-
-    def test_statistics(self):
-        ap = AlternatingPath(self.problem3)
-        selection = ap.select_clauses()
-        self.assertEqual(12, ap.selected_count)
-        self.assertEqual(14, ap.clause_count)
-
 
 if __name__ == '__main__':
     unittest.main()

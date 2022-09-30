@@ -24,6 +24,7 @@ def process_options(opts):
     global max_depth, no_output, stats, verbose, indexed
     for opt, optarg in opts:
         if opt == "-h" or opt == "--help":
+            print("alternating-path-standalone.py "+version)
             print(__doc__)
             sys.exit()
         elif opt == "-l" or opt == "--limit":
