@@ -203,7 +203,11 @@ class IndexedClauseSet(ClauseSet):
         Create the two indices and call the superclass initializer. 
         """
         self.res_index = ResolutionIndex()
+        for clause in clauses:
+            self.res_index.insertClause(clause)
         self.sub_index = SubsumptionIndex()
+        for clause in clauses:
+            self.sub_index.insertClause(clause)
         ClauseSet.__init__(self, clauses)
 
     def addClause(self, clause):
