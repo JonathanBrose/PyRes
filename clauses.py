@@ -178,6 +178,18 @@ class Clause(Derivable):
         for l in selected:
             l.setInferenceLit(True)
 
+    def selectInferenceLitsAll(self, lit_selection_fun=firstLit):
+        """
+        select Inference Literals, regardless if they are negative or not.
+        This is used for alternating path.
+        """
+        for l in self.literals:
+            l.setInferenceLit(False)
+
+        selected = lit_selection_fun(self.literals)
+        for l in selected:
+            l.setInferenceLit(True)
+
     def predicateAbstraction(self):
         """
         The predicate abstraction of a clause is an ordered tuple of
