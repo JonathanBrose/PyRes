@@ -1,11 +1,8 @@
 import textwrap
 import unittest
 from lexer import Lexer
-from clausesets import ClauseSet
+from clausesets import ClauseSet, IndexedClauseSet
 from unification import mgu
-
-
-# TODO: Sonderbehandlung für equality ??
 
 def find_complementary_mgu(clause1, lit1, clause2, lit2):
     l1 = clause1.getLiteral(lit1)
@@ -17,7 +14,6 @@ def find_complementary_mgu(clause1, lit1, clause2, lit2):
 
 
 class AlternatingPath(object):
-    clause_count = 0
 
     @property
     def selected_count(self):
@@ -30,14 +26,22 @@ class AlternatingPath(object):
         """
         return len(self.path_levels) - 1
 
-    def __init__(self, clauses, limit=float('inf'), verbose=False):
+    def __init__(self, clauses, limit=float('inf'), verbose=False, indexed=False):
         self.clause_count = len(clauses.clauses)
         self.verbose = verbose
         self.limit = limit  # limit how deep the selection is run
         # start the algorithmen with the conjecture and any other hypotheses etc...
-        self.selected = ClauseSet([c for c in clauses.clauses if c.type in ["negated_conjecture", "plain"]])
+        self.selected = [c for c in clauses.clauses if c.type in ["negated_conjecture", "plain"]]
         # all the other clauses like axioms go into the unprocessed set.
-        self.unprocessed = ClauseSet([c for c in clauses.clauses if c not in self.selected.clauses])
+        self.unprocessed = [c for c in clauses.clauses if c not in self.selected]
+
+        if indexed:
+            self.selected = IndexedClauseSet(self.selected)
+            self.unprocessed = IndexedClauseSet(self.unprocessed)
+        else:
+            self.selected = ClauseSet(self.selected)
+            self.unprocessed = ClauseSet(self.unprocessed)
+
         # the path_levels contain a mapping of
         self.path_levels = [
             [(sci, -1) for sci in range(len(self.selected))]  # level zero contains the starting clauses
@@ -323,6 +327,17 @@ class TestAlternatingPath(unittest.TestCase):
         for clause in self.problem3.clauses[:-2]:
             self.assertIn(clause, selection.clauses)
 
+    def test_indexed_selection(self):
+        ap = AlternatingPath(self.problem3, indexed=True)
+        selection = ap.select_clauses()
+        self.assertEqual(12, len(selection))
+        # the last two should not be selected
+        for clause in self.problem3.clauses[-2:]:
+            self.assertNotIn(clause, selection.clauses)
+        # everything else should be selected
+        for clause in self.problem3.clauses[:-2]:
+            self.assertIn(clause, selection.clauses)
+
     def test_limit(self):
         """
         Make sure the depth-limit is working
@@ -347,13 +362,6 @@ class TestAlternatingPath(unittest.TestCase):
         selection = ap.select_clauses()
         self.assertEqual(12, ap.selected_count)
         self.assertEqual(14, ap.clause_count)
-
-    def test_still_solvable(self):
-        """
-        Test if the reduced Problem is still solvable by pyres
-        """
-        # TODO: Example for testing is missing
-        pass
 
 
 if __name__ == '__main__':

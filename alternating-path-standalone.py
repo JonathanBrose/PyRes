@@ -14,16 +14,16 @@ max_depth = float('inf')
 stats = False
 no_output = False
 verbose = False
+indexed = False
 
-sys.tracebacklimit = 0
+# sys.tracebacklimit = 0
 def process_options(opts):
     """
     Process the options given
     """
-    global max_depth, no_output, stats, verbose
+    global max_depth, no_output, stats, verbose, indexed
     for opt, optarg in opts:
         if opt == "-h" or opt == "--help":
-            print("pyres-simple.py " + version)
             print(__doc__)
             sys.exit()
         elif opt == "-l" or opt == "--limit":
@@ -34,6 +34,8 @@ def process_options(opts):
             no_output = True
         elif opt == "-v" or opt == "--verbose":
             verbose = True
+        elif opt == "-i" or opt == "--indexed":
+            indexed = True
 
 def timeoutHandler(sign, frame):
     """
@@ -64,8 +66,8 @@ if __name__ == '__main__':
 
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:],
-                                       "hl:nsv",
-                                       ["help", "limit", "no-output", "stats", "verbose"])
+                                       "hl:nsvi",
+                                       ["help", "limit", "no-output", "stats", "verbose", "indexed"])
     except getopt.GetoptError as err:
         print(sys.argv[0], ":", err)
         sys.exit(1)
@@ -78,7 +80,7 @@ if __name__ == '__main__':
     problem.addEqAxioms()
     cnf = problem.clausify()
 
-    ap = AlternatingPath(cnf, limit=max_depth, verbose=verbose)
+    ap = AlternatingPath(cnf, limit=max_depth, verbose=verbose, indexed=indexed)
     selection = ap.select_clauses()
 
     if not no_output:
