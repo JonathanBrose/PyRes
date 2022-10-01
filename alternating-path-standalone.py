@@ -16,7 +16,7 @@ no_output = False
 verbose = False
 indexed = False
 
-# sys.tracebacklimit = 0
+
 def process_options(opts):
     """
     Process the options given
@@ -37,8 +37,11 @@ def process_options(opts):
             verbose = True
         elif opt == "-i" or opt == "--indexed":
             indexed = True
+        elif opt == "--no-stacktrace":
+            sys.tracebacklimit = 0
 
-def timeoutHandler(sign, frame):
+
+def timeout_handler(sign, frame):
     """
     This will be called if the process receives a SIGXCPU error. In
     that case, we print an informative message before terminating. We
@@ -62,13 +65,13 @@ if __name__ == '__main__':
         # OS-X. In that case, we just do our best...
         pass
 
-    signal(SIGXCPU, timeoutHandler)
+    signal(SIGXCPU, timeout_handler)
     sys.setrecursionlimit(10000)
 
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:],
                                        "hl:nsvi",
-                                       ["help", "limit", "no-output", "stats", "verbose", "indexed"])
+                                       ["help", "no-stacktrace", "limit", "no-output", "stats", "verbose", "indexed"])
     except getopt.GetoptError as err:
         print(sys.argv[0], ":", err)
         sys.exit(1)

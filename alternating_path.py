@@ -72,7 +72,7 @@ class AlternatingPath(object):
                     #  then we add the new clause to the list if it is not already in.
                     #  This way duplicates are avoided upfront.
                     if sigma is not None:
-                        if cl2 not in self.selected[-1].clauses:
+                        if cl2 not in self.selected_flat.clauses:
                             self.unprocessed.extractClause(cl2)
                             cl2.selectInferenceLitsAll(lambda litlist: selectAlternating(litlist, lit2))
                             self.selected[-1].addClause(cl2)
@@ -104,7 +104,12 @@ class AlternatingPath(object):
             if not next_level.clauses:
                 break
 
-        return self.selected_flat
+        # reset the inference lits
+        selected = self.selected_flat
+        for clause in selected.clauses:
+            for lit in clause.literals:
+                lit.setInferenceLit(True)
+        return selected
 
     def statistics_str(self):
         """
