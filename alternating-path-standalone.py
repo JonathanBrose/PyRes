@@ -4,13 +4,14 @@ import sys
 import getopt
 from resource import getrusage, RUSAGE_SELF
 
+from clausesets import ClauseSet
 from fofspec import FOFSpec
 from version import version
-from alternating_path import AlternatingPath
+from alternating_path import AlternatingPathSelection
 from resource import RLIMIT_STACK, setrlimit, getrlimit
 from signal import  signal, SIGXCPU
 
-max_depth = float('inf')
+limit = None
 stats = False
 no_output = False
 verbose = False
@@ -21,14 +22,14 @@ def process_options(opts):
     """
     Process the options given
     """
-    global max_depth, no_output, stats, verbose, indexed
+    global limit, no_output, stats, verbose, indexed
     for opt, optarg in opts:
         if opt == "-h" or opt == "--help":
             print("alternating-path-standalone.py "+version)
             print(__doc__)
             sys.exit()
         elif opt == "-l" or opt == "--limit":
-            max_depth = int(optarg)
+            limit = int(optarg)
         elif opt == "-s" or opt == "--stats":
             stats = True
         elif opt == "-n" or opt == "--no-output":
@@ -84,8 +85,8 @@ if __name__ == '__main__':
     problem.addEqAxioms()
     cnf = problem.clausify()
 
-    ap = AlternatingPath(cnf, limit=max_depth, verbose=verbose, indexed=indexed)
-    selection = ap.select_clauses()
+    ap = AlternatingPathSelection(cnf.clauses, limit, verbose=verbose, indexed=indexed)
+    selection = ClauseSet(ap.select_clauses())
 
     if not no_output:
         print("-----------------------------")
