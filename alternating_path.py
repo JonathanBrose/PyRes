@@ -41,8 +41,8 @@ class AlternatingPathSelection(object):
     This class initializes and controls the Clause-Selection with Alternating Path
     """
     limit = float('inf')
-
-    def __init__(self, initial_clauses, limit=None, indexed=False, verbose=False):
+    start_selected_by = "negated_conjecture"
+    def __init__(self, initial_clauses, limit=None, indexed=False, verbose=False, equality_clauses=[]):
         self.clause_count = len(initial_clauses)
         if limit is not None:
             self.limit = limit  # limit how deep the selection is run
@@ -54,9 +54,11 @@ class AlternatingPathSelection(object):
             [c for c in initial_clauses if c.type in ["negated_conjecture"]]
         ]
         if not self.selected[0]:
-            self.selected[0] = [c for c in initial_clauses if c.type in ["hypothesis"]]
+            self.selected[0] = [c for c in initial_clauses if c.type in ["plain"] and c not in equality_clauses]
+            self.start_selected_by = "plain"
         if not self.selected[0]:
             self.selected[0] = [c for c in initial_clauses]
+            self.start_selected_by = "all"
         # all the other clauses like axioms go into the unprocessed set.
         unprocessed = [c for c in initial_clauses if c not in self.selected[0]]
         self.unprocessed = ClauseSet(unprocessed) if not indexed else IndexedClauseSet(unprocessed)
@@ -142,9 +144,10 @@ class AlternatingPathSelection(object):
         return textwrap.dedent(f"""\
             # Initial clauses    : {self.clause_count}
             # Selected clauses   : {self.selected_count}
+            # Selected per level : {[len(level) for level in self.selected]}
             # Max path depth     : {self.depth}
-            # Depth limit        : {self.limit}""")
-
+            # Depth limit        : {self.limit}
+            # 0-level selected by: {self.start_selected_by}""")
 
 class TestAlternatingPath(unittest.TestCase):
     """
