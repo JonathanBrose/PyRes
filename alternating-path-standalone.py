@@ -16,13 +16,13 @@ stats = False
 no_output = False
 verbose = False
 indexed = False
-
+include_equality = False
 
 def process_options(opts):
     """
     Process the options given
     """
-    global limit, no_output, stats, verbose, indexed
+    global limit, no_output, stats, verbose, indexed, include_equality
     for opt, optarg in opts:
         if opt == "-h" or opt == "--help":
             print("alternating-path-standalone.py "+version)
@@ -38,6 +38,8 @@ def process_options(opts):
             verbose = True
         elif opt == "-i" or opt == "--indexed":
             indexed = True
+        elif opt == "-e" or opt == "--include-equality":
+            include_equality = True
         elif opt == "--no-stacktrace":
             sys.tracebacklimit = 0
 
@@ -71,8 +73,8 @@ if __name__ == '__main__':
 
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:],
-                                       "hl:nsvi",
-                                       ["help", "no-stacktrace", "limit", "no-output", "stats", "verbose", "indexed"])
+                                       "hl:nsvie",
+                                       ["help", "no-stacktrace", "limit=", "no-output", "stats", "verbose", "indexed", "include-equality"])
     except getopt.GetoptError as err:
         print(sys.argv[0], ":", err)
         sys.exit(1)
@@ -82,12 +84,19 @@ if __name__ == '__main__':
     problem = FOFSpec()
     for file in args:
         problem.parse(file)
+    normal_clauses = [c for c in problem.clauses]
     problem.addEqAxioms()
+    equality_clauses = [c for c in problem.clauses if c not in normal_clauses]
     cnf = problem.clausify()
+    if not include_equality:
+        for c in equality_clauses:
+            cnf.extractClause(c)
 
-    ap = AlternatingPathSelection(cnf.clauses, limit, verbose=verbose, indexed=indexed)
+    ap = AlternatingPathSelection(cnf.clauses, limit, verbose=verbose, indexed=indexed, equality_clauses=equality_clauses)
     selection = ClauseSet(ap.select_clauses())
-
+    if not include_equality:
+        for c in equality_clauses:
+            selection.addClause(c)
     if not no_output:
         print("-----------------------------")
         print(selection)
@@ -95,7 +104,8 @@ if __name__ == '__main__':
     if stats:
         print("------- Statistics -----------")
         print(ap.statistics_str())
-
+        if equality_clauses:
+            print(f"# Equality clauses   : {len(equality_clauses)} ({'incl.' if include_equality else 'excl.'})")
         resources = getrusage(RUSAGE_SELF)
         print("# -------- CPU Time ---------")
         print("# User time          : %.3f s" % (resources.ru_utime,))
