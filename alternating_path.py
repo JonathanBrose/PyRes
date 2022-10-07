@@ -127,6 +127,7 @@ class AlternatingPathSelection(object):
 
             # if we didn't find any new paths, we stop.
             if not next_level:
+                self.selected.pop()
                 break
 
         # reset the inference lits
