@@ -71,7 +71,7 @@ class AlternatingPathSelection(object):
         """
         The current relevance depth of the algorithm.
         """
-        return len(self.selected) - 1
+        return len(self.selected_unique) - 1
 
     @property
     def selected_flat(self):
@@ -129,12 +129,17 @@ class AlternatingPathSelection(object):
                         elif cl2 in self.partly_selected.clauses and cl2.getLiteral(lit2).isInferenceLit():
                             # multiple paths to a clause means, all literals can now be used for more paths
                             self.partly_selected.extractClause(cl2)
+                            self.selected[-1].append(cl2)
                             if cl2 not in self.unprocessed.clauses:
-                                self.selected[-1].append(cl2)
                                 inverted_inferencelits = [l for l in cl2.literals if not l.isInferenceLit()]
                                 cl2.selectInferenceLitsAll(lambda litlist: inverted_inferencelits)
-                            else:
-                                cl2.selectInferenceLitsAll(lambda litlist: litlist)
+
+        if clause not in self.partly_selected.clauses:
+            inverted_inferencelits = [l for l in clause.literals if not l.isInferenceLit()]
+            clause.selectInferenceLitsAll(lambda litlist: inverted_inferencelits)
+
+
+# Achtung die level die relevanz level sind instabil....
 
     def select_clauses(self):
         """
@@ -377,14 +382,12 @@ class TestAlternatingPath(unittest.TestCase):
         ap = AlternatingPathSelection(self.problem1.clauses)
         selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
-        for clause in self.problem1.clauses:
-            self.assertIn(clause, selection)
+        self.assertCountEqual(self.problem1.clauses, selection)
 
         ap = AlternatingPathSelection(self.problem2.clauses)
         selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
-        for clause in self.problem2.clauses:
-            self.assertIn(clause, selection)
+        self.assertCountEqual(self.problem2.clauses, selection)
 
         ap = AlternatingPathSelection(self.problem3.clauses)
         selection = ap.select_clauses()
@@ -393,8 +396,7 @@ class TestAlternatingPath(unittest.TestCase):
         for clause in self.problem3.clauses[-2:]:
             self.assertNotIn(clause, selection)
         # everything else should be selected
-        for clause in self.problem3.clauses[:-2]:
-            self.assertIn(clause, selection)
+        self.assertCountEqual(self.problem3.clauses[:-2], selection)
 
         ap = AlternatingPathSelection(self.problem4.clauses)
         selection = ap.select_clauses()
@@ -407,13 +409,46 @@ class TestAlternatingPath(unittest.TestCase):
         # the last two should not be selected
         for clause in self.problem3.clauses[-2:]:
             self.assertNotIn(clause, selection)
-        # everything else should be selected
-        for clause in self.problem3.clauses[:-2]:
-            self.assertIn(clause, selection)
+            # everything else should be selected
+        self.assertCountEqual(self.problem3.clauses[:-2], selection)
 
         ap = AlternatingPathSelection(self.problem4.clauses, indexed=True)
         selection = ap.select_clauses()
         self.assertCountEqual(self.problem4.clauses, selection)
+
+    def test_selection_depth(self):
+        ap = AlternatingPathSelection(self.problem1.clauses)
+        ap.select_clauses()
+        self.assertEqual(3, ap.depth)
+
+        ap = AlternatingPathSelection(self.problem2.clauses)
+        ap.select_clauses()
+        self.assertEqual(11, ap.depth)
+
+        ap = AlternatingPathSelection(self.problem3.clauses)
+        ap.select_clauses()
+        self.assertEqual(11, ap.depth)
+
+        ap = AlternatingPathSelection(self.problem4.clauses)
+        ap.select_clauses()
+        self.assertEqual(3, ap.depth)
+
+    def test_indexed_selection_depth(self):
+        ap = AlternatingPathSelection(self.problem1.clauses, indexed=True)
+        ap.select_clauses()
+        self.assertEqual(3, ap.depth)
+
+        ap = AlternatingPathSelection(self.problem2.clauses, indexed=True)
+        ap.select_clauses()
+        self.assertEqual(11, ap.depth)
+
+        ap = AlternatingPathSelection(self.problem3.clauses, indexed=True)
+        ap.select_clauses()
+        self.assertEqual(11, ap.depth)
+
+        ap = AlternatingPathSelection(self.problem4.clauses, indexed=True)
+        ap.select_clauses()
+        self.assertEqual(3, ap.depth)
 
     def test_limit(self):
         """
