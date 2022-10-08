@@ -28,7 +28,7 @@ class AlternatingPathSelection(SimplePathSelection):
         unique_levels = []
         for level in self.selected:
             current_level = []
-            unique_levels.append([])
+            unique_levels.append(current_level)
             for clause in level:
                 if clause in already_added:
                     continue
