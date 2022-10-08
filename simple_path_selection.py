@@ -5,7 +5,7 @@ from clausesets import ClauseSet, IndexedClauseSet
 from unification import mgu
 
 
-class AlternatingPathSelection(object):
+class SimplePathSelection(object):
     """
     This class initializes and controls the Clause-Selection with Alternating Path
     """
@@ -122,9 +122,9 @@ class AlternatingPathSelection(object):
             # 0-level selected by: {self.start_selected_by}""")
 
 
-class TestAlternatingPath(unittest.TestCase):
+class TestSimplePathSelection(unittest.TestCase):
     """
-    Unit test class for Alternating Path premise selection
+    Unit test class for Simple (Alternating) Path premise selection
     """
 
     def setUp(self):
@@ -298,84 +298,84 @@ class TestAlternatingPath(unittest.TestCase):
         """
         Test if the initialization works as expected
         """
-        ap = AlternatingPathSelection(self.problem1.clauses)
+        ap = SimplePathSelection(self.problem1.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
         self.assertEqual(self.problem1.clauses[-1:], ap.selected[0])
         self.assertEqual(self.problem1.clauses[:-1], ap.unprocessed.clauses)
 
-        ap = AlternatingPathSelection(self.problem2.clauses)
+        ap = SimplePathSelection(self.problem2.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
         self.assertEqual(self.problem2.clauses[-1:], ap.selected[0])
         self.assertEqual(self.problem2.clauses[:-1], ap.unprocessed.clauses)
 
         # make sure that setting the limit works
         self.assertEqual(float('inf'), ap.limit)
-        ap = AlternatingPathSelection([], limit=8)
+        ap = SimplePathSelection([], limit=8)
         self.assertEqual(8, ap.limit)
 
     def test_selection(self):
         """
         Test if the correct axioms are selected
         """
-        ap = AlternatingPathSelection(self.problem1.clauses)
+        ap = SimplePathSelection(self.problem1.clauses)
         selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
         self.assertCountEqual(self.problem1.clauses, selection)
 
-        ap = AlternatingPathSelection(self.problem2.clauses)
+        ap = SimplePathSelection(self.problem2.clauses)
         selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
         self.assertCountEqual(self.problem2.clauses, selection)
 
-        ap = AlternatingPathSelection(self.problem3.clauses)
+        ap = SimplePathSelection(self.problem3.clauses)
         selection = ap.select_clauses()
         self.assertCountEqual(self.problem3.clauses, selection)
 
-        ap = AlternatingPathSelection(self.problem4.clauses)
+        ap = SimplePathSelection(self.problem4.clauses)
         selection = ap.select_clauses()
         self.assertCountEqual(self.problem4.clauses, selection)
 
     def test_indexed_selection(self):
-        ap = AlternatingPathSelection(self.problem3.clauses, indexed=True)
+        ap = SimplePathSelection(self.problem3.clauses, indexed=True)
         selection = ap.select_clauses()
         selection = ap.select_clauses()
         self.assertCountEqual(self.problem3.clauses, selection)
 
-        ap = AlternatingPathSelection(self.problem4.clauses, indexed=True)
+        ap = SimplePathSelection(self.problem4.clauses, indexed=True)
         selection = ap.select_clauses()
         self.assertCountEqual(self.problem4.clauses, selection)
 
     def test_selection_depth(self):
-        ap = AlternatingPathSelection(self.problem1.clauses)
+        ap = SimplePathSelection(self.problem1.clauses)
         ap.select_clauses()
         self.assertEqual(3, ap.depth)
 
-        ap = AlternatingPathSelection(self.problem2.clauses)
+        ap = SimplePathSelection(self.problem2.clauses)
         ap.select_clauses()
         self.assertEqual(11, ap.depth)
 
-        ap = AlternatingPathSelection(self.problem3.clauses)
+        ap = SimplePathSelection(self.problem3.clauses)
         ap.select_clauses()
         self.assertEqual(12, ap.depth)
 
-        ap = AlternatingPathSelection(self.problem4.clauses)
+        ap = SimplePathSelection(self.problem4.clauses)
         ap.select_clauses()
         self.assertEqual(2, ap.depth)
 
     def test_indexed_selection_depth(self):
-        ap = AlternatingPathSelection(self.problem1.clauses, indexed=True)
+        ap = SimplePathSelection(self.problem1.clauses, indexed=True)
         ap.select_clauses()
         self.assertEqual(3, ap.depth)
 
-        ap = AlternatingPathSelection(self.problem2.clauses, indexed=True)
+        ap = SimplePathSelection(self.problem2.clauses, indexed=True)
         ap.select_clauses()
         self.assertEqual(11, ap.depth)
 
-        ap = AlternatingPathSelection(self.problem3.clauses, indexed=True)
+        ap = SimplePathSelection(self.problem3.clauses, indexed=True)
         ap.select_clauses()
         self.assertEqual(12, ap.depth)
 
-        ap = AlternatingPathSelection(self.problem4.clauses, indexed=True)
+        ap = SimplePathSelection(self.problem4.clauses, indexed=True)
         ap.select_clauses()
         self.assertEqual(2, ap.depth)
 
@@ -387,7 +387,7 @@ class TestAlternatingPath(unittest.TestCase):
 
         def assert_limit(limit, expected_len):
             self.setUp()
-            ap = AlternatingPathSelection(self.problem2.clauses, limit=limit)
+            ap = SimplePathSelection(self.problem2.clauses, limit=limit)
             selection = ap.select_clauses()
             self.assertEqual(expected_len, len(selection))
 
