@@ -5,37 +5,6 @@ from clausesets import ClauseSet, IndexedClauseSet
 from unification import mgu
 
 
-def find_complementary_mgu(clause1, lit1, clause2, lit2):
-    """
-    Finds the most general unifier of two literals if they are complementary
-    :param clause1: first clause
-    :param lit1: index of literal in clause1
-    :param clause2: seconde clause
-    :param lit2: index of literal in clause2
-    :return: most general unifier if found and if clause1 and clause2 are complementary signed
-    """
-    l1 = clause1.getLiteral(lit1)
-    l2 = clause2.getLiteral(lit2)
-    if l1.isNegative() == l2.isNegative():
-        return None
-    sigma = mgu(l1.atom, l2.atom)
-    return sigma
-
-
-def selectAlternating(litlist, alt_lit_index):
-    """
-    Selects all literals in litlist for inference, expect the one with the index of alt_lit_index.
-    This way we make sure the alternating criterion is met.
-    :param litlist: the list of literals to mark for inference
-    :param alt_lit_index: the index of the literal that shouldn't be marked for inference
-    :return: litlist, but all literal marked for inference, except alt_lit_index
-    """
-    selected = litlist[:alt_lit_index]
-    if len(litlist) - alt_lit_index > 1:
-        selected += litlist[alt_lit_index + 1:]
-    return selected
-
-
 class AlternatingPathSelection(object):
     """
     This class initializes and controls the Clause-Selection with Alternating Path
@@ -43,12 +12,11 @@ class AlternatingPathSelection(object):
     limit = float('inf')
     start_selected_by = "negated_conjecture"
 
-    def __init__(self, initial_clauses, limit=None, indexed=False, verbose=False, equality_clauses=[]):
+    def __init__(self, initial_clauses, limit=None, indexed=False, equality_clauses=[]):
         self.clause_count = len(initial_clauses)
         if limit is not None:
             self.limit = limit  # limit how deep the selection is run
         self.indexed = indexed
-        self.verbose = verbose
         # start the algorithm with the conjecture and any other hypotheses etc...
         # the selected clauses are stored as nested lists, one list for each relevance level.
         self.selected = [
@@ -90,7 +58,7 @@ class AlternatingPathSelection(object):
         unique_levels = []
         for level in self.selected:
             current_level = []
-            unique_levels.append(current_level)
+            unique_levels.append([])
             for clause in level:
                 if clause in already_added:
                     continue
@@ -100,43 +68,53 @@ class AlternatingPathSelection(object):
 
     @property
     def selected_count(self):
-        return len(self.selected_flat)
+        return len(self.selected_flat_unique)
 
     def find_next_paths(self, clause):
-        """
-        Finds clauses from the unprocessed set that are reachable by an alternating path of length 1
-        :param clause: clause to start the search from
-        :return: reachable clauses
-        """
-        if clause in self.unprocessed.clauses:
-            self.unprocessed.extractClause(clause)
-        #TODO: clean getLiteral into variable instead index
-        for lit in range(len(clause)):
-            if clause.getLiteral(lit).isInferenceLit():
-                partners = self.unprocessed.getResolutionLiterals(clause.getLiteral(lit)) \
-                           + self.partly_selected.getResolutionLiterals(clause.getLiteral(lit))
-                for (cl2, lit2) in partners:
-                    sigma = find_complementary_mgu(clause, lit, cl2, lit2)
-                    if sigma is not None:
-                        if cl2 not in self.selected_flat:
-                            # self.unprocessed.extractClause(cl2)
-                            self.selected[-1].append(cl2)
-                            if not cl2.isUnit():
-                                self.partly_selected.addClause(cl2)
-                            cl2.selectInferenceLitsAll(lambda litlist: selectAlternating(litlist, lit2))
-                            if self.verbose:
-                                print(f"# ({self.depth}) selected {cl2}")
-                        elif cl2 in self.partly_selected.clauses and cl2.getLiteral(lit2).isInferenceLit():
-                            # multiple paths to a clause means, all literals can now be used for more paths
-                            self.partly_selected.extractClause(cl2)
-                            self.selected[-1].append(cl2)
-                            if cl2 not in self.unprocessed.clauses:
-                                inverted_inferencelits = [l for l in cl2.literals if not l.isInferenceLit()]
-                                cl2.selectInferenceLitsAll(lambda litlist: inverted_inferencelits)
 
-        if clause not in self.partly_selected.clauses:
+        def invert_inference_lits(c):
+            """invert the inference selection for next time"""
             inverted_inferencelits = [l for l in clause.literals if not l.isInferenceLit()]
-            clause.selectInferenceLitsAll(lambda litlist: inverted_inferencelits)
+            c.selectInferenceLitsAll(lambda litlist: [l for l in litlist if l in inverted_inferencelits])
+
+        def exclude_from_inference_lits(c, lit):
+            """ exlcude param lit and select all other"""
+            c.selectInferenceLitsAll(lambda litlist: [l for l in litlist if l is not lit])
+
+        unprocessed = clause in self.unprocessed.clauses
+        if unprocessed:
+            self.unprocessed.extractClause(clause)
+
+        inference_lits = [lit for lit in clause.literals if lit.isInferenceLit()]
+        # paths can't start from the same literal again.
+        for lit1 in inference_lits:
+            unprocessed_partners = self.unprocessed.getResolutionLiterals(lit1)
+            partly_selected_partners = self.partly_selected.getResolutionLiterals(lit1)
+            partners = {(cl, cl.getLiteral(li)) for cl, li in (unprocessed_partners + partly_selected_partners)}
+
+            for clause2, lit2 in partners:
+                if lit1.isNegative() == lit2.isNegative():
+                    continue # non complementary pairs are never in an AP
+                sigma = mgu(lit1.atom, lit2.atom)
+                if sigma is None:
+                    continue # if the complementary lits are not unifiable there is not AP with them.
+
+                # in this case we found the first ap to clause2
+                if clause2 not in self.selected_flat:
+                    self.selected[-1].append(clause2)
+                    self.partly_selected.addClause(clause2)
+                    exclude_from_inference_lits(clause2, lit2) # there can't be a new AP from this lit2 now.
+
+                # a new ap to clause2 is only necessary if clause2 was not processed on all lits yet.
+                elif clause2 in self.partly_selected.clauses and lit2.isInferenceLit():
+                    self.selected[-1].append(clause2)
+                    if clause2 not in self.unprocessed.clauses: # already processed clause2 will be visited again
+                        invert_inference_lits(clause2) # next time we only need to check the lits we haven't yet.
+                    self.partly_selected.extractClause(clause2)
+
+        # multiple APs to clause. It will be visited again soon.
+        if unprocessed and clause not in self.partly_selected.clauses:
+            invert_inference_lits(clause) # next time we only need to check the lits we haven't yet.
 
 
 # Achtung die level die relevanz level sind instabil....
@@ -164,8 +142,8 @@ class AlternatingPathSelection(object):
                 self.selected.pop()
                 break
 
-        # reset the inference lits
         selected = self.selected_flat_unique
+        # reset the inference lits
         for clause in selected:
             for lit in clause.literals:
                 lit.setInferenceLit(True)

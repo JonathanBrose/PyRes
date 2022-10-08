@@ -14,7 +14,6 @@ from signal import  signal, SIGXCPU
 limit = None
 stats = False
 no_output = False
-verbose = False
 indexed = False
 include_equality = False
 
@@ -22,7 +21,7 @@ def process_options(opts):
     """
     Process the options given
     """
-    global limit, no_output, stats, verbose, indexed, include_equality
+    global limit, no_output, stats, indexed, include_equality
     for opt, optarg in opts:
         if opt == "-h" or opt == "--help":
             print("alternating-path-standalone.py "+version)
@@ -34,8 +33,6 @@ def process_options(opts):
             stats = True
         elif opt == "-n" or opt == "--no-output":
             no_output = True
-        elif opt == "-v" or opt == "--verbose":
-            verbose = True
         elif opt == "-i" or opt == "--indexed":
             indexed = True
         elif opt == "-e" or opt == "--include-equality":
@@ -60,7 +57,7 @@ if __name__ == '__main__':
     try:
         soft, hard = getrlimit(RLIMIT_STACK)
         soft = 10*soft
-        if hard > 0 and soft > hard:
+        if 0 < hard < soft:
             soft = hard
         setrlimit(RLIMIT_STACK, (soft, hard))
     except ValueError:
@@ -73,8 +70,14 @@ if __name__ == '__main__':
 
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:],
-                                       "hl:nsvie",
-                                       ["help", "no-stacktrace", "limit=", "no-output", "stats", "verbose", "indexed", "include-equality"])
+                                       "hl:nsie",
+                                       ["help",
+                                        "no-stacktrace",
+                                        "limit=",
+                                        "no-output",
+                                        "stats",
+                                        "indexed",
+                                        "include-equality"])
     except getopt.GetoptError as err:
         print(sys.argv[0], ":", err)
         sys.exit(1)
@@ -92,7 +95,7 @@ if __name__ == '__main__':
         for c in equality_clauses:
             cnf.extractClause(c)
 
-    ap = AlternatingPathSelection(cnf.clauses, limit, verbose=verbose, indexed=indexed, equality_clauses=equality_clauses)
+    ap = AlternatingPathSelection(cnf.clauses, limit, indexed=indexed, equality_clauses=equality_clauses)
     selection = ClauseSet(ap.select_clauses())
     if not include_equality:
         for c in equality_clauses:
