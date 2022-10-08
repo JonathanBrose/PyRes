@@ -62,6 +62,12 @@ Options:
    Use alternating path premise selection to select only relevant axioms.
    limit is the max length of an alternating path, starting from the conjecture
 
+ -D=<limit>
+ --simple-path-selection=<limit>
+   Use simple path premise selection to select only relevant axioms.
+   limit is the max length of an path, starting from the conjecture
+   D stands for dumb alternating path (simple path is a simplified ap-selection)
+
 A reasonable command line to run the prover would be:
 
   ./pyres-fof.py -tifb -HPickGiven5 -nlargest EXAMPLES/PUZ001+1.p
@@ -99,7 +105,8 @@ import getopt
 from signal import  signal, SIGXCPU
 from resource import getrusage, RUSAGE_SELF
 
-from alternating_path import AlternatingPath
+from alternating_path_selection import AlternatingPathSelection
+from simple_path_selection import SimplePathSelection
 from version import version
 from lexer import Token,Lexer
 from derivations import enableDerivationOutput,disableDerivationOutput,Derivable,flatDerivation
@@ -116,13 +123,14 @@ silent           = False
 indexed          = False
 proofObject      = False
 alternatingPath  = False
-alternatingPathLimit = float('inf')
+simplePath       = False
+alternatingPathLimit = None
 
 def processOptions(opts):
     """
     Process the options given
     """
-    global silent, indexed, suppressEqAxioms, proofObject, alternatingPath, alternatingPathLimit
+    global silent, indexed, suppressEqAxioms, proofObject, alternatingPath, alternatingPathLimit, simplePath
 
     params = SearchParams()
     for opt, optarg in opts:
@@ -164,6 +172,10 @@ def processOptions(opts):
             alternatingPath = True
             if optarg:
                 alternatingPathLimit = int(optarg)
+        elif opt=="-D" or opt == "--simple-path-selection":
+            simplePath = True
+            if optarg:
+                alternatingPathLimit = int(optarg)
 
     return params
 
@@ -186,7 +198,7 @@ if __name__ == '__main__':
     try:
         soft, hard = getrlimit(RLIMIT_STACK)
         soft = 10*soft
-        if hard > 0 and soft > hard:
+        if 0 < hard < soft:
             soft = hard
         setrlimit(RLIMIT_STACK, (soft, hard))
     except ValueError:
@@ -199,7 +211,7 @@ if __name__ == '__main__':
 
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:],
-                                       "hsVpitfbH:n:SA:",
+                                       "hsVpitfbH:n:SA:D:",
                                        ["help",
                                         "silent",
                                         "version",
@@ -211,30 +223,38 @@ if __name__ == '__main__':
                                         "given-clause-heuristic=",
                                         "neg-lit-selection=",
                                         "supress-eq-axioms",
-                                        "alternating-path-selection"])
+                                        "alternating-path-selection=",
+                                        "simple-path-selection="])
     except getopt.GetoptError as err:
         print(sys.argv[0],":", err)
         sys.exit(1)
 
     params = processOptions(opts)
-
+    print("loading problem.....")
     problem = FOFSpec()
     for file in args:
         problem.parse(file)
 
     if not suppressEqAxioms:
         problem.addEqAxioms()
+    print("clausifing problem...")
     cnf = problem.clausify()
 
     ap = None
     if alternatingPath:
-        ap = AlternatingPath(cnf, alternatingPathLimit)
-        cnf = ap.select_clauses()
+        print("selecting axioms with AP-Selection...")
+        ap = AlternatingPathSelection(cnf.clauses, alternatingPathLimit, indexed=indexed)
+        cnf = ClauseSet(ap.select_clauses())
+    elif simplePath:
+        print("selecting axioms with SP-Selection...")
+        ap = SimplePathSelection(cnf.clauses, alternatingPathLimit, indexed=indexed)
+        cnf = ClauseSet(ap.select_clauses())
 
+    print("starting saturation...")
     state = ProofState(params, cnf, silent, indexed)
     res = state.saturate()
 
-    if res != None:
+    if res is not None:
         if problem.isFof and problem.hasConj:
             print("# SZS status Theorem")
         else:
