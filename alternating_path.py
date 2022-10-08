@@ -42,6 +42,7 @@ class AlternatingPathSelection(object):
     """
     limit = float('inf')
     start_selected_by = "negated_conjecture"
+
     def __init__(self, initial_clauses, limit=None, indexed=False, verbose=False, equality_clauses=[]):
         self.clause_count = len(initial_clauses)
         if limit is not None:
@@ -62,6 +63,8 @@ class AlternatingPathSelection(object):
         # all the other clauses like axioms go into the unprocessed set.
         unprocessed = [c for c in initial_clauses if c not in self.selected[0]]
         self.unprocessed = ClauseSet(unprocessed) if not indexed else IndexedClauseSet(unprocessed)
+        # clauses, for which not all literals have been covered until now
+        self.partly_selected = ClauseSet() if not indexed else IndexedClauseSet()
 
     @property
     def depth(self):
@@ -78,6 +81,24 @@ class AlternatingPathSelection(object):
         return [clause for cs in self.selected for clause in cs]
 
     @property
+    def selected_flat_unique(self):
+        return list(dict.fromkeys(self.selected_flat))
+
+    @property
+    def selected_unique(self):
+        already_added = []
+        unique_levels = []
+        for level in self.selected:
+            current_level = []
+            unique_levels.append(current_level)
+            for clause in level:
+                if clause in already_added:
+                    continue
+                already_added.append(clause)
+                current_level.append(clause)
+        return unique_levels
+
+    @property
     def selected_count(self):
         return len(self.selected_flat)
 
@@ -87,25 +108,33 @@ class AlternatingPathSelection(object):
         :param clause: clause to start the search from
         :return: reachable clauses
         """
-
+        if clause in self.unprocessed.clauses:
+            self.unprocessed.extractClause(clause)
+        #TODO: clean getLiteral into variable instead index
         for lit in range(len(clause)):
             if clause.getLiteral(lit).isInferenceLit():
-                partners = self.unprocessed.getResolutionLiterals(clause.getLiteral(lit))
+                partners = self.unprocessed.getResolutionLiterals(clause.getLiteral(lit)) \
+                           + self.partly_selected.getResolutionLiterals(clause.getLiteral(lit))
                 for (cl2, lit2) in partners:
                     sigma = find_complementary_mgu(clause, lit, cl2, lit2)
-                    #  If we find a unifier that results in a complementary literal pair,
-                    #  then we add the new clause to the list if it is not already in.
-                    #  This way duplicates are avoided upfront.
                     if sigma is not None:
                         if cl2 not in self.selected_flat:
-                            self.unprocessed.extractClause(cl2)
-                            cl2.selectInferenceLitsAll(lambda litlist: selectAlternating(litlist, lit2))
+                            # self.unprocessed.extractClause(cl2)
                             self.selected[-1].append(cl2)
+                            if not cl2.isUnit():
+                                self.partly_selected.addClause(cl2)
+                            cl2.selectInferenceLitsAll(lambda litlist: selectAlternating(litlist, lit2))
                             if self.verbose:
                                 print(f"# ({self.depth}) selected {cl2}")
-                        else:
+                        elif cl2 in self.partly_selected.clauses and cl2.getLiteral(lit2).isInferenceLit():
                             # multiple paths to a clause means, all literals can now be used for more paths
-                            cl2.selectInferenceLitsAll(lambda litlist: litlist)
+                            self.partly_selected.extractClause(cl2)
+                            if cl2 not in self.unprocessed.clauses:
+                                self.selected[-1].append(cl2)
+                                inverted_inferencelits = [l for l in cl2.literals if not l.isInferenceLit()]
+                                cl2.selectInferenceLitsAll(lambda litlist: inverted_inferencelits)
+                            else:
+                                cl2.selectInferenceLitsAll(lambda litlist: litlist)
 
     def select_clauses(self):
         """
@@ -131,7 +160,7 @@ class AlternatingPathSelection(object):
                 break
 
         # reset the inference lits
-        selected = self.selected_flat
+        selected = self.selected_flat_unique
         for clause in selected:
             for lit in clause.literals:
                 lit.setInferenceLit(True)
@@ -145,7 +174,8 @@ class AlternatingPathSelection(object):
         return textwrap.dedent(f"""\
             # Initial clauses    : {self.clause_count}
             # Selected clauses   : {self.selected_count}
-            # Selected per level : {[len(level) for level in self.selected]}
+            # Selected per level : {[len(level) for level in self.selected_unique]}
+            # All per level      : {[len(level) for level in self.selected]}
             # Max path depth     : {self.depth}
             # Depth limit        : {self.limit}
             # 0-level selected by: {self.start_selected_by}""")
@@ -302,6 +332,25 @@ class TestAlternatingPath(unittest.TestCase):
         self.problem3 = ClauseSet()
         self.problem3.parse(Lexer(self.spec3))
 
+        self.spec4 = """
+            cnf(c,negated_conjecture,
+                ( kill(b,a)
+                 | kill(c,a))).
+                 
+            cnf(a1,axiom,
+                ( ~ kill(X,Y)
+                | hate(X,Y)
+                | rich(X,Y))).
+                
+            cnf(a2,axiom,
+                ( ~ kill(X,Y)
+                | ~ rich(X,Y))).
+            
+            cnf(a3,axiom,
+                ( kill(a,b))).
+        """
+        self.problem4 = ClauseSet()
+        self.problem4.parse(Lexer(self.spec4))
     def test_initialization(self):
         """
         Test if the initialization works as expected
@@ -347,6 +396,10 @@ class TestAlternatingPath(unittest.TestCase):
         for clause in self.problem3.clauses[:-2]:
             self.assertIn(clause, selection)
 
+        ap = AlternatingPathSelection(self.problem4.clauses)
+        selection = ap.select_clauses()
+        self.assertCountEqual(self.problem4.clauses, selection)
+
     def test_indexed_selection(self):
         ap = AlternatingPathSelection(self.problem3.clauses, indexed=True)
         selection = ap.select_clauses()
@@ -357,6 +410,10 @@ class TestAlternatingPath(unittest.TestCase):
         # everything else should be selected
         for clause in self.problem3.clauses[:-2]:
             self.assertIn(clause, selection)
+
+        ap = AlternatingPathSelection(self.problem4.clauses, indexed=True)
+        selection = ap.select_clauses()
+        self.assertCountEqual(self.problem4.clauses, selection)
 
     def test_limit(self):
         """
@@ -370,8 +427,9 @@ class TestAlternatingPath(unittest.TestCase):
             selection = ap.select_clauses()
             self.assertEqual(expected_len, len(selection))
 
-            for clause, i in zip(selection, indices[:expected_len]):
-                self.assertEqual(self.problem2.clauses[i], clause)
+            expected = [self.problem2.clauses[i] for i in indices[:expected_len]]
+            self.assertEqual(expected, selection)
+            # also checks that elements are ordered by relevance
 
         assert_limit(1, 2)
         assert_limit(5, 6)
