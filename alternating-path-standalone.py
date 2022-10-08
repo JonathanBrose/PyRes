@@ -7,7 +7,8 @@ from resource import getrusage, RUSAGE_SELF
 from clausesets import ClauseSet
 from fofspec import FOFSpec
 from version import version
-from alternating_path import AlternatingPathSelection
+from alternating_path_selection import AlternatingPathSelection
+from simple_path_selection import SimplePathSelection
 from resource import RLIMIT_STACK, setrlimit, getrlimit
 from signal import  signal, SIGXCPU
 
@@ -16,12 +17,14 @@ stats = False
 no_output = False
 indexed = False
 include_equality = False
+dumb = False
+
 
 def process_options(opts):
     """
     Process the options given
     """
-    global limit, no_output, stats, indexed, include_equality
+    global limit, no_output, stats, indexed, include_equality, dumb
     for opt, optarg in opts:
         if opt == "-h" or opt == "--help":
             print("alternating-path-standalone.py "+version)
@@ -37,6 +40,8 @@ def process_options(opts):
             indexed = True
         elif opt == "-e" or opt == "--include-equality":
             include_equality = True
+        elif opt == "-d" or opt == "--dumb":
+            dumb = True
         elif opt == "--no-stacktrace":
             sys.tracebacklimit = 0
 
@@ -70,14 +75,15 @@ if __name__ == '__main__':
 
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:],
-                                       "hl:nsie",
+                                       "hl:nsied",
                                        ["help",
                                         "no-stacktrace",
                                         "limit=",
                                         "no-output",
                                         "stats",
                                         "indexed",
-                                        "include-equality"])
+                                        "include-equality",
+                                        "dumb"])
     except getopt.GetoptError as err:
         print(sys.argv[0], ":", err)
         sys.exit(1)
@@ -91,15 +97,20 @@ if __name__ == '__main__':
     problem.addEqAxioms()
     equality_clauses = [c for c in problem.clauses if c not in normal_clauses]
     cnf = problem.clausify()
+
     if not include_equality:
         for c in equality_clauses:
             cnf.extractClause(c)
 
-    ap = AlternatingPathSelection(cnf.clauses, limit, indexed=indexed, equality_clauses=equality_clauses)
+    ap = AlternatingPathSelection(cnf.clauses, limit, indexed=indexed, equality_clauses=equality_clauses) if not dumb \
+        else SimplePathSelection(cnf.clauses, limit, indexed=indexed, equality_clauses=equality_clauses)
+
     selection = ClauseSet(ap.select_clauses())
+
     if not include_equality:
         for c in equality_clauses:
             selection.addClause(c)
+
     if not no_output:
         print("-----------------------------")
         print(selection)
