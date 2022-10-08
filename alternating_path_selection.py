@@ -2,10 +2,11 @@ import textwrap
 import unittest
 from lexer import Lexer
 from clausesets import ClauseSet, IndexedClauseSet
+from simple_path_selection import SimplePathSelection
 from unification import mgu
 
 
-class AlternatingPathSelection(object):
+class AlternatingPathSelection(SimplePathSelection):
     """
     This class initializes and controls the Clause-Selection with Alternating Path
     """
@@ -13,40 +14,9 @@ class AlternatingPathSelection(object):
     start_selected_by = "negated_conjecture"
 
     def __init__(self, initial_clauses, limit=None, indexed=False, equality_clauses=[]):
-        self.clause_count = len(initial_clauses)
-        if limit is not None:
-            self.limit = limit  # limit how deep the selection is run
-        self.indexed = indexed
-        # start the algorithm with the conjecture and any other hypotheses etc...
-        # the selected clauses are stored as nested lists, one list for each relevance level.
-        self.selected = [
-            [c for c in initial_clauses if c.type in ["negated_conjecture"]]
-        ]
-        if not self.selected[0]:
-            self.selected[0] = [c for c in initial_clauses if c.type in ["plain"] and c not in equality_clauses]
-            self.start_selected_by = "plain"
-        if not self.selected[0]:
-            self.selected[0] = [c for c in initial_clauses]
-            self.start_selected_by = "all"
-        # all the other clauses like axioms go into the unprocessed set.
-        unprocessed = [c for c in initial_clauses if c not in self.selected[0]]
-        self.unprocessed = ClauseSet(unprocessed) if not indexed else IndexedClauseSet(unprocessed)
+        super().__init__(initial_clauses, limit, indexed, equality_clauses)
         # clauses, for which not all literals have been covered until now
         self.partly_selected = ClauseSet() if not indexed else IndexedClauseSet()
-
-    @property
-    def depth(self):
-        """
-        The current relevance depth of the algorithm.
-        """
-        return len(self.selected_unique) - 1
-
-    @property
-    def selected_flat(self):
-        """
-        Returns all the selected clauses in one flat list
-        """
-        return [clause for cs in self.selected for clause in cs]
 
     @property
     def selected_flat_unique(self):
@@ -65,10 +35,6 @@ class AlternatingPathSelection(object):
                 already_added.append(clause)
                 current_level.append(clause)
         return unique_levels
-
-    @property
-    def selected_count(self):
-        return len(self.selected_flat_unique)
 
     def find_next_paths(self, clause):
 
@@ -125,42 +91,17 @@ class AlternatingPathSelection(object):
         The loop stops when all relevant clauses are processed, or if the depth-limit is reached.
         :return: selected clauses
         """
-        while self.unprocessed.clauses and self.depth < self.limit:
-            current_level = self.selected[-1]
-            next_level = []
-            self.selected.append(next_level)
+        def reset_inference_lits(clauses):
+            for clause in clauses:
+                for lit in clause.literals:
+                    lit.setInferenceLit(True)
 
-            # for each clause of the current relevance level we check for more paths
-            for clause in current_level:
-                self.find_next_paths(clause)
-
-            # if we didn't find any new paths, we stop.
-            if not next_level:
-                self.selected.pop()
-                break
-
-        selected = self.selected_flat_unique
-        # reset the inference lits
-        for clause in selected:
-            for lit in clause.literals:
-                lit.setInferenceLit(True)
+        selected = super().select_clauses()
+        reset_inference_lits(selected)
         return selected
 
-    def statistics_str(self):
-        """
-        Return the selection statistics in string form ready for
-        output.
-        """
-        return textwrap.dedent(f"""\
-            # Initial clauses    : {self.clause_count}
-            # Selected clauses   : {self.selected_count}
-            # Selected per level : {[len(level) for level in self.selected_unique]}
-            # All per level      : {[len(level) for level in self.selected]}
-            # Max path depth     : {self.depth}
-            # Depth limit        : {self.limit}
-            # 0-level selected by: {self.start_selected_by}""")
 
-class TestAlternatingPath(unittest.TestCase):
+class TestAlternatingPathSelection(unittest.TestCase):
     """
     Unit test class for Alternating Path premise selection
     """
