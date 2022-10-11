@@ -7,24 +7,27 @@ from unification import mgu
 
 class SimplePathSelection(object):
     """
-    This class initializes and controls the Clause-Selection with Alternating Path
+    This class initializes and controls the clause-selection with Alternating Path
     """
     limit = float('inf')
     start_selected_by = "negated_conjecture"
 
-    def __init__(self, initial_clauses, limit=None, indexed=False, equality_clauses=[]):
+    def __init__(self, initial_clauses, limit=None,
+                 indexed=False, equality_clauses=[]):
         self.clause_count = len(initial_clauses)
+        self.indexed = indexed
         if limit is not None:
             self.limit = limit  # limit how deep the selection is run
-        self.indexed = indexed
-        # start the algorithm with the conjecture and any other hypotheses etc...
+
         # the selected clauses are stored as nested lists, one list for each relevance level.
         self.selected = [
             [c for c in initial_clauses if c.type in ["negated_conjecture"]]
         ]
+        # if there is no conjecture, start from hypotheses instead
         if not self.selected[0]:
             self.selected[0] = [c for c in initial_clauses if c.type in ["plain"] and c not in equality_clauses]
             self.start_selected_by = "plain"
+        # if there are no obvious clauses to start from, select everything
         if not self.selected[0]:
             self.selected[0] = [c for c in initial_clauses]
             self.start_selected_by = "all"
