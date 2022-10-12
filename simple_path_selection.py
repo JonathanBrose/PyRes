@@ -62,14 +62,7 @@ class SimplePathSelection(object):
         return len(self.selected_flat_unique)
 
     def find_next_paths(self, clause):
-
-        unprocessed = clause in self.unprocessed.clauses
-        if unprocessed:
-            self.unprocessed.extractClause(clause)
-
-        inference_lits = [lit for lit in clause.literals if lit.isInferenceLit()]
-        # paths can't start from the same literal again.
-        for lit1 in inference_lits:
+        for lit1 in clause.literals:
             unprocessed_partners = self.unprocessed.getResolutionLiterals(lit1)
             partners = {(cl, cl.getLiteral(li)) for cl, li in unprocessed_partners}
 
@@ -79,10 +72,10 @@ class SimplePathSelection(object):
                 sigma = mgu(lit1.atom, lit2.atom)
                 if sigma is None:
                     continue # if the complementary lits are not unifiable there is not AP with them.
-
                 # in this case we found the first ap to clause2
                 if clause2 not in self.selected_flat:
                     self.selected[-1].append(clause2)
+                    self.unprocessed.extractClause(clause2)
 
     def select_clauses(self):
         """

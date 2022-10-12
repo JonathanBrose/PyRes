@@ -10,9 +10,6 @@ class AlternatingPathSelection(SimplePathSelection):
     """
     This class initializes and controls the Clause-Selection with Alternating Path
     """
-    limit = float('inf')
-    start_selected_by = "negated_conjecture"
-
     def __init__(self, initial_clauses, limit=None, indexed=False, equality_clauses=[]):
         super().__init__(initial_clauses, limit, indexed, equality_clauses)
         # clauses, for which not all literals have been covered until now
@@ -256,7 +253,7 @@ class TestAlternatingPathSelection(unittest.TestCase):
         self.spec4 = """
             cnf(c,negated_conjecture,
                 ( kill(b,a)
-                 | kill(c,a))).
+                 | drop(c,a))).
                  
             cnf(a1,axiom,
                 ( ~ kill(X,Y)
@@ -264,11 +261,11 @@ class TestAlternatingPathSelection(unittest.TestCase):
                 | rich(X,Y))).
                 
             cnf(a2,axiom,
-                ( ~ kill(X,Y)
+                ( ~ drop(X,Y)
                 | ~ rich(X,Y))).
             
             cnf(a3,axiom,
-                ( kill(a,b))).
+                ( drop(a,b))).
         """
         self.problem4 = ClauseSet()
         self.problem4.parse(Lexer(self.spec4))

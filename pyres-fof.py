@@ -61,11 +61,13 @@ Options:
  --alternating-path-selection=<limit>
    Use alternating path premise selection to select only relevant axioms.
    limit is the max length of an alternating path, starting from the conjecture
+   for no limit use "No" or "None"
 
  -D=<limit>
  --simple-path-selection=<limit>
    Use simple path premise selection to select only relevant axioms.
    limit is the max length of an path, starting from the conjecture
+   for no limit use "No" or "None"
    D stands for dumb alternating path (simple path is a simplified ap-selection)
 
 A reasonable command line to run the prover would be:
@@ -171,11 +173,17 @@ def processOptions(opts):
         elif opt=="-A" or opt == "--alternating-path-selection":
             alternatingPath = True
             if optarg:
-                alternatingPathLimit = int(optarg)
+                try:
+                    alternatingPathLimit = int(optarg)
+                except ValueError:
+                    pass
         elif opt=="-D" or opt == "--simple-path-selection":
             simplePath = True
             if optarg:
-                alternatingPathLimit = int(optarg)
+                try:
+                    alternatingPathLimit = int(optarg)
+                except ValueError:
+                    pass
 
     return params
 
@@ -230,27 +238,22 @@ if __name__ == '__main__':
         sys.exit(1)
 
     params = processOptions(opts)
-    print("loading problem.....")
     problem = FOFSpec()
     for file in args:
         problem.parse(file)
 
     if not suppressEqAxioms:
         problem.addEqAxioms()
-    print("clausifing problem...")
     cnf = problem.clausify()
 
     ap = None
     if alternatingPath:
-        print("selecting axioms with AP-Selection...")
         ap = AlternatingPathSelection(cnf.clauses, alternatingPathLimit, indexed=indexed)
         cnf = ClauseSet(ap.select_clauses())
     elif simplePath:
-        print("selecting axioms with SP-Selection...")
         ap = SimplePathSelection(cnf.clauses, alternatingPathLimit, indexed=indexed)
         cnf = ClauseSet(ap.select_clauses())
 
-    print("starting saturation...")
     state = ProofState(params, cnf, silent, indexed)
     res = state.saturate()
 
@@ -284,7 +287,7 @@ if __name__ == '__main__':
             print("# SZS output end Saturation")
             disableDerivationOutput()
     print(state.statisticsStr())
-    if alternatingPath:
+    if alternatingPath or simplePath:
         print("# ------- AP Selection -------")
         print(ap.statistics_str())
     # We use the resources interface to get and print the CPU time
