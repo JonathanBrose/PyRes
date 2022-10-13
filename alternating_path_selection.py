@@ -13,7 +13,7 @@ class AlternatingPathSelection(SimplePathSelection):
     def __init__(self, initial_clauses, limit=None, indexed=False, equality_clauses=[]):
         super().__init__(initial_clauses, limit, indexed, equality_clauses)
         # clauses, for which not all literals have been covered until now
-        self.partly_selected = ClauseSet() if not indexed else IndexedClauseSet()
+        self.partly_processed = ClauseSet() if not indexed else IndexedClauseSet()
 
     @property
     def selected_flat_unique(self):
@@ -52,7 +52,7 @@ class AlternatingPathSelection(SimplePathSelection):
         # paths can't start from the same literal again.
         for lit1 in inference_lits:
             unprocessed_partners = self.unprocessed.getResolutionLiterals(lit1)
-            partly_selected_partners = self.partly_selected.getResolutionLiterals(lit1)
+            partly_selected_partners = self.partly_processed.getResolutionLiterals(lit1)
             partners = {(cl, cl.getLiteral(li)) for cl, li in (unprocessed_partners + partly_selected_partners)}
 
             for clause2, lit2 in partners:
@@ -65,29 +65,21 @@ class AlternatingPathSelection(SimplePathSelection):
                 # in this case we found the first ap to clause2
                 if clause2 not in self.selected_flat:
                     self.selected[-1].append(clause2)
-                    self.partly_selected.addClause(clause2)
+                    self.partly_processed.addClause(clause2)
                     exclude_from_inference_lits(clause2, lit2) # there can't be a new AP from this lit2 now.
 
                 # a new ap to clause2 is only necessary if clause2 was not processed on all lits yet.
-                elif clause2 in self.partly_selected.clauses and lit2.isInferenceLit():
+                elif clause2 in self.partly_processed.clauses and lit2.isInferenceLit():
                     self.selected[-1].append(clause2)
                     if clause2 not in self.unprocessed.clauses: # already processed clause2 will be visited again
                         invert_inference_lits(clause2) # next time we only need to check the lits we haven't yet.
-                    self.partly_selected.extractClause(clause2)
+                    self.partly_processed.extractClause(clause2)
 
         # multiple APs to clause. It will be visited again soon.
-        if unprocessed and clause not in self.partly_selected.clauses:
+        if unprocessed and clause not in self.partly_processed.clauses:
             invert_inference_lits(clause) # next time we only need to check the lits we haven't yet.
 
     def select_clauses(self):
-        """
-        Main loop to find the relevant clauses.
-        For each iteration the clauses of relevance k are found.
-        k=0 relevant items are the negated conjectures
-        k=1 are the clauses reachable with an alternating path of length 1 and so on.
-        The loop stops when all relevant clauses are processed, or if the depth-limit is reached.
-        :return: selected clauses
-        """
         def reset_inference_lits(clauses):
             for clause in clauses:
                 for lit in clause.literals:
