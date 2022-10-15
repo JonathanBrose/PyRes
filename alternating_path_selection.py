@@ -11,6 +11,7 @@ class AlternatingPathSelection(SimplePathSelection):
     This class initializes and controls the Clause-Selection with Alternating Path
     """
     def __init__(self, initial_clauses, limit=None, indexed=False, equality_clauses=[]):
+        initial_clauses = [c.freshVarCopy() for c in initial_clauses]
         super().__init__(initial_clauses, limit, indexed, equality_clauses)
         # clauses, for which not all literals have been covered until now
         self.partly_processed = ClauseSet() if not indexed else IndexedClauseSet()
@@ -57,27 +58,28 @@ class AlternatingPathSelection(SimplePathSelection):
 
             for clause2, lit2 in partners:
                 if lit1.isNegative() == lit2.isNegative():
-                    continue # non complementary pairs are never in an AP
+                    continue  # non complementary pairs are never in an AP
                 sigma = mgu(lit1.atom, lit2.atom)
                 if sigma is None:
-                    continue # if the complementary lits are not unifiable there is not AP with them.
+                    continue  # if the complementary lits are not unifiable there is not AP with them.
 
                 # in this case we found the first ap to clause2
                 if clause2 not in self.selected_flat:
                     self.selected[-1].append(clause2)
+                    self.unprocessed.extractClause(clause2)  # remove temporary
+                    exclude_from_inference_lits(clause2, lit2)  # there can't be a new AP from this lit2 now.
+                    self.unprocessed.addClause(clause2)  # readd clause, this is done to update the index
                     self.partly_processed.addClause(clause2)
-                    exclude_from_inference_lits(clause2, lit2) # there can't be a new AP from this lit2 now.
 
                 # a new ap to clause2 is only necessary if clause2 was not processed on all lits yet.
                 elif clause2 in self.partly_processed.clauses and lit2.isInferenceLit():
                     self.selected[-1].append(clause2)
-                    if clause2 not in self.unprocessed.clauses: # already processed clause2 will be visited again
-                        invert_inference_lits(clause2) # next time we only need to check the lits we haven't yet.
                     self.partly_processed.extractClause(clause2)
-
+                    if clause2 not in self.unprocessed.clauses:  # already processed clause2 will be visited again
+                        invert_inference_lits(clause2)  # next time we only need to check the lits we haven't yet.
         # multiple APs to clause. It will be visited again soon.
         if unprocessed and clause not in self.partly_processed.clauses:
-            invert_inference_lits(clause) # next time we only need to check the lits we haven't yet.
+            invert_inference_lits(clause)  # next time we only need to check the lits we haven't yet.
 
     def select_clauses(self):
         def reset_inference_lits(clauses):
@@ -261,6 +263,7 @@ class TestAlternatingPathSelection(unittest.TestCase):
         """
         self.problem4 = ClauseSet()
         self.problem4.parse(Lexer(self.spec4))
+
     def test_initialization(self):
         """
         Test if the initialization works as expected
