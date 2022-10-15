@@ -16,7 +16,7 @@ limit = None
 stats = False
 no_output = False
 indexed = False
-include_equality = False
+include_equality = True
 dumb = False
 
 
@@ -38,8 +38,8 @@ def process_options(opts):
             no_output = True
         elif opt == "-i" or opt == "--indexed":
             indexed = True
-        elif opt == "-e" or opt == "--include-equality":
-            include_equality = True
+        elif opt == "-e" or opt == "--exclude-equality":
+            include_equality = False
         elif opt == "-d" or opt == "--dumb":
             dumb = True
         elif opt == "--no-stacktrace":
@@ -82,7 +82,7 @@ if __name__ == '__main__':
                                         "no-output",
                                         "stats",
                                         "indexed",
-                                        "include-equality",
+                                        "exclude-equality",
                                         "dumb"])
     except getopt.GetoptError as err:
         print(sys.argv[0], ":", err)
