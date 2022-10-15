@@ -109,7 +109,7 @@ class SimplePathSelection(object):
         output.
         """
         return textwrap.dedent(f"""\
-            # Initial clauses    : {self.clause_count}
+            # Initial clauses ap : {self.clause_count}
             # Selected clauses   : {self.selected_count}
             # Selected per level : {[len(level) for level in self.selected_unique]}
             # All per level      : {[len(level) for level in self.selected]}
