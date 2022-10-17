@@ -3,7 +3,7 @@ import unittest
 from lexer import Lexer
 from clausesets import ClauseSet, IndexedClauseSet
 from unification import mgu
-
+from copy import deepcopy as copy
 
 class SimplePathSelection(object):
     """
@@ -15,24 +15,24 @@ class SimplePathSelection(object):
     def __init__(self, initial_clauses, limit=None,
                  indexed=False, equality_clauses=[]):
         self.clause_count = len(initial_clauses)
-        self.indexed = indexed
         if limit is not None:
             self.limit = limit  # limit how deep the selection is run
-
         # the selected clauses are stored as nested lists, one list for each relevance level.
-        self.selected = [
-            [c for c in initial_clauses if c.type in ["negated_conjecture"]]
-        ]
+        self.selected = [c for c in initial_clauses if c.type in ["negated_conjecture"]]
         # if there is no conjecture, start from hypotheses instead
-        if not self.selected[0]:
-            self.selected[0] = [c for c in initial_clauses if c.type in ["plain"] and c not in equality_clauses]
+        if not self.selected:
+            self.selected = [c for c in initial_clauses if c.type in ["plain"] and c not in equality_clauses]
             self.start_selected_by = "plain"
         # if there are no obvious clauses to start from, select everything
-        if not self.selected[0]:
-            self.selected[0] = [c for c in initial_clauses]
+        if not self.selected:
+            self.selected = [c for c in initial_clauses]
             self.start_selected_by = "all"
         # all the other clauses like axioms go into the unprocessed set.
-        unprocessed = [c for c in initial_clauses if c not in self.selected[0]]
+
+        self.levels = [
+            [c for c in self.selected]
+        ]
+        unprocessed = [c for c in initial_clauses if c not in self.levels[0]]
         self.unprocessed = ClauseSet(unprocessed) if not indexed else IndexedClauseSet(unprocessed)
 
     @property
@@ -43,23 +43,8 @@ class SimplePathSelection(object):
         return len(self.selected_unique) - 1
 
     @property
-    def selected_flat(self):
-        """
-        Returns all the selected clauses in one flat list
-        """
-        return [clause for cs in self.selected for clause in cs]
-
-    @property
-    def selected_flat_unique(self):
-        return self.selected_flat
-
-    @property
     def selected_unique(self):
-        return self.selected
-
-    @property
-    def selected_count(self):
-        return len(self.selected_flat_unique)
+        return self.levels
 
     def find_next_paths(self, clause):
         for lit1 in clause.literals:
@@ -73,8 +58,9 @@ class SimplePathSelection(object):
                 if sigma is None:
                     continue # if the complementary lits are not unifiable there is not AP with them.
                 # in this case we found the first ap to clause2
-                if clause2 not in self.selected_flat:
-                    self.selected[-1].append(clause2)
+                if clause2 not in self.selected:
+                    self.selected.append(clause2)
+                    self.levels[-1].append(clause2)
                     self.unprocessed.extractClause(clause2)
 
     def select_clauses(self):
@@ -87,9 +73,9 @@ class SimplePathSelection(object):
         :return: selected clauses
         """
         while self.unprocessed.clauses and self.depth < self.limit:
-            current_level = self.selected[-1]
+            current_level = self.levels[-1]
             next_level = []
-            self.selected.append(next_level)
+            self.levels.append(next_level)
 
             # for each clause of the current relevance level we check for more paths
             for clause in current_level:
@@ -97,11 +83,10 @@ class SimplePathSelection(object):
 
             # if we didn't find any new paths, we stop.
             if not next_level:
-                self.selected.pop()
+                self.levels.pop()
                 break
 
-        selected = self.selected_flat_unique
-        return selected
+        return self.selected
 
     def statistics_str(self):
         """
@@ -110,9 +95,9 @@ class SimplePathSelection(object):
         """
         return textwrap.dedent(f"""\
             # Initial clauses ap : {self.clause_count}
-            # Selected clauses   : {self.selected_count}
+            # Selected clauses   : {len(self.selected)}
             # Selected per level : {[len(level) for level in self.selected_unique]}
-            # All per level      : {[len(level) for level in self.selected]}
+            # All per level      : {[len(level) for level in self.levels]}
             # Max path depth     : {self.depth}
             # Depth limit        : {self.limit}
             # 0-level selected by: {self.start_selected_by}""")
@@ -296,12 +281,12 @@ class TestSimplePathSelection(unittest.TestCase):
         """
         ap = SimplePathSelection(self.problem1.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(self.problem1.clauses[-1:], ap.selected[0])
+        self.assertEqual(self.problem1.clauses[-1:], ap.levels[0])
         self.assertEqual(self.problem1.clauses[:-1], ap.unprocessed.clauses)
 
         ap = SimplePathSelection(self.problem2.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(self.problem2.clauses[-1:], ap.selected[0])
+        self.assertEqual(self.problem2.clauses[-1:], ap.levels[0])
         self.assertEqual(self.problem2.clauses[:-1], ap.unprocessed.clauses)
 
         # make sure that setting the limit works

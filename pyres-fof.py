@@ -241,17 +241,16 @@ if __name__ == '__main__':
     problem = FOFSpec()
     for file in args:
         problem.parse(file)
+    normal_clauses = [c for c in problem.clauses]
 
     if not suppressEqAxioms:
         problem.addEqAxioms()
+    equality_clauses = [c for c in problem.clauses if c not in normal_clauses]
     cnf = problem.clausify()
 
-    ap = None
-    if alternatingPath:
-        ap = AlternatingPathSelection(cnf.clauses, alternatingPathLimit, indexed=indexed)
-        cnf = ClauseSet(ap.select_clauses())
-    elif simplePath:
-        ap = SimplePathSelection(cnf.clauses, alternatingPathLimit, indexed=indexed)
+    if alternatingPath or simplePath:
+        Selection = AlternatingPathSelection if alternatingPath else SimplePathSelection
+        ap = Selection(cnf.clauses, alternatingPathLimit, indexed=indexed, equality_clauses=equality_clauses)
         cnf = ClauseSet(ap.select_clauses())
 
     state = ProofState(params, cnf, silent, indexed)

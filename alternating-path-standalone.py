@@ -102,8 +102,8 @@ if __name__ == '__main__':
         for c in equality_clauses:
             cnf.extractClause(c)
 
-    ap = AlternatingPathSelection(cnf.clauses, limit, indexed=indexed, equality_clauses=equality_clauses) if not dumb \
-        else SimplePathSelection(cnf.clauses, limit, indexed=indexed, equality_clauses=equality_clauses)
+    Selection = AlternatingPathSelection if not dumb else SimplePathSelection
+    ap = Selection(cnf.clauses, limit, indexed=indexed, equality_clauses=equality_clauses)
 
     selection = ClauseSet(ap.select_clauses())
 

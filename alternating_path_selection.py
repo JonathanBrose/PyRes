@@ -4,91 +4,71 @@ from lexer import Lexer
 from clausesets import ClauseSet, IndexedClauseSet
 from simple_path_selection import SimplePathSelection
 from unification import mgu
+from copy import deepcopy as copy
+
+
+def reset_inference_lits(clause):
+    """sets all literals of the clause to True"""
+    for lit in clause.literals:
+        lit.inference_lit = True
 
 
 class AlternatingPathSelection(SimplePathSelection):
-    """
-    This class initializes and controls the Clause-Selection with Alternating Path
-    """
-    def __init__(self, initial_clauses, limit=None, indexed=False, equality_clauses=[]):
-        initial_clauses = [c.freshVarCopy() for c in initial_clauses]
-        super().__init__(initial_clauses, limit, indexed, equality_clauses)
-        # clauses, for which not all literals have been covered until now
-        self.partly_processed = ClauseSet() if not indexed else IndexedClauseSet()
-
-    @property
-    def selected_flat_unique(self):
-        return list(dict.fromkeys(self.selected_flat))
 
     @property
     def selected_unique(self):
         already_added = []
         unique_levels = []
-        for level in self.selected:
+        for level in self.levels:
             current_level = []
             unique_levels.append(current_level)
             for clause in level:
-                if clause in already_added:
+                if str(clause) in already_added:
                     continue
-                already_added.append(clause)
+                already_added.append(str(clause))
                 current_level.append(clause)
         return unique_levels
 
     def find_next_paths(self, clause):
-
-        def invert_inference_lits(c):
-            """invert the inference selection for next time"""
-            inverted_inferencelits = [l for l in clause.literals if not l.isInferenceLit()]
-            c.selectInferenceLitsAll(lambda litlist: [l for l in litlist if l in inverted_inferencelits])
-
-        def exclude_from_inference_lits(c, lit):
-            """ exlcude param lit and select all other"""
-            c.selectInferenceLitsAll(lambda litlist: [l for l in litlist if l is not lit])
-
-        unprocessed = clause in self.unprocessed.clauses
-        if unprocessed:
-            self.unprocessed.extractClause(clause)
-
+        clause_str = str(clause)
         inference_lits = [lit for lit in clause.literals if lit.isInferenceLit()]
         # paths can't start from the same literal again.
         for lit1 in inference_lits:
+            # partners = self.unprocessed.getResolutionLiterals(lit1)
             unprocessed_partners = self.unprocessed.getResolutionLiterals(lit1)
-            partly_selected_partners = self.partly_processed.getResolutionLiterals(lit1)
-            partners = {(cl, cl.getLiteral(li)) for cl, li in (unprocessed_partners + partly_selected_partners)}
+            partners = {(cl, cl.getLiteral(li), li) for cl, li in unprocessed_partners}
 
-            for clause2, lit2 in partners:
+            for clause2, lit2, lit2_i in partners:
+                if not lit2.isInferenceLit():
+                    continue
+                if clause_str == str(clause2):
+                    continue  # no paths to the same clause
                 if lit1.isNegative() == lit2.isNegative():
                     continue  # non complementary pairs are never in an AP
                 sigma = mgu(lit1.atom, lit2.atom)
                 if sigma is None:
                     continue  # if the complementary lits are not unifiable there is not AP with them.
 
-                # in this case we found the first ap to clause2
-                if clause2 not in self.selected_flat:
-                    self.selected[-1].append(clause2)
-                    self.unprocessed.extractClause(clause2)  # remove temporary
-                    exclude_from_inference_lits(clause2, lit2)  # there can't be a new AP from this lit2 now.
-                    self.unprocessed.addClause(clause2)  # readd clause, this is done to update the index
-                    self.partly_processed.addClause(clause2)
+                # add to selection if not already selected
+                if clause2 not in self.selected:
+                    self.selected.append(clause2)
 
-                # a new ap to clause2 is only necessary if clause2 was not processed on all lits yet.
-                elif clause2 in self.partly_processed.clauses and lit2.isInferenceLit():
-                    self.selected[-1].append(clause2)
-                    self.partly_processed.extractClause(clause2)
-                    if clause2 not in self.unprocessed.clauses:  # already processed clause2 will be visited again
-                        invert_inference_lits(clause2)  # next time we only need to check the lits we haven't yet.
-        # multiple APs to clause. It will be visited again soon.
-        if unprocessed and clause not in self.partly_processed.clauses:
-            invert_inference_lits(clause)  # next time we only need to check the lits we haven't yet.
+                # mark used literal in unproccessd
+                self.unprocessed.extractClause(clause2)
+                lit2.inference_lit = False
+                if [l for l in clause2.literals if l.inference_lit]:
+                    self.unprocessed.addClause(clause2)  # if no lit is left, the clause is fully processed
+
+                # add copy of the clause with marked literals into levels
+                c = copy(clause2)
+                reset_inference_lits(c)
+                c.literals[lit2_i].inference_lit = False
+                self.levels[-1].append(c)
 
     def select_clauses(self):
-        def reset_inference_lits(clauses):
-            for clause in clauses:
-                for lit in clause.literals:
-                    lit.setInferenceLit(True)
-
         selected = super().select_clauses()
-        reset_inference_lits(selected)
+        for clause in selected:
+            reset_inference_lits(clause)
         return selected
 
 
@@ -102,7 +82,6 @@ class TestAlternatingPathSelection(unittest.TestCase):
         Setup function for unit tests.
         Initialize the problems that will be used in the tests.
         """
-        print()
         self.spec1 = """
             cnf(one_shaved_then_all_shaved,axiom,
                 ( ~ member(X)
@@ -268,15 +247,18 @@ class TestAlternatingPathSelection(unittest.TestCase):
         """
         Test if the initialization works as expected
         """
+        def stringify(clauses):
+            return [str(c) for c in clauses]
+
         ap = AlternatingPathSelection(self.problem1.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(self.problem1.clauses[-1:], ap.selected[0])
-        self.assertEqual(self.problem1.clauses[:-1], ap.unprocessed.clauses)
+        self.assertEqual(stringify(self.problem1.clauses[-1:]), stringify(ap.levels[0]))
+        self.assertEqual(stringify(self.problem1.clauses[:-1]), stringify(ap.unprocessed.clauses))
 
         ap = AlternatingPathSelection(self.problem2.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(self.problem2.clauses[-1:], ap.selected[0])
-        self.assertEqual(self.problem2.clauses[:-1], ap.unprocessed.clauses)
+        self.assertEqual(stringify(self.problem2.clauses[-1:]), stringify(ap.levels[0]))
+        self.assertEqual(stringify(self.problem2.clauses[:-1]), stringify(ap.unprocessed.clauses))
 
         # make sure that setting the limit works
         self.assertEqual(float('inf'), ap.limit)
@@ -358,7 +340,7 @@ class TestAlternatingPathSelection(unittest.TestCase):
         ap.select_clauses()
         self.assertEqual(3, ap.depth)
 
-    def test_limit(self):
+    def test_limit_and_order(self):
         """
         Make sure the depth-limit is working
         """
@@ -378,7 +360,6 @@ class TestAlternatingPathSelection(unittest.TestCase):
         assert_limit(5, 6)
         assert_limit(8, 9)
         assert_limit(20, len(indices))
-
 
 if __name__ == '__main__':
     unittest.main()
