@@ -255,6 +255,9 @@ if __name__ == '__main__':
         Selection = AlternatingPathSelection if alternatingPath else SimplePathSelection
         ap = Selection(cnf.clauses, alternatingPathLimit, indexed=ap_indexed, equality_clauses=equality_clauses)
         cnf = ClauseSet(ap.select_clauses())
+        print(f"# ------- {'AP' if alternatingPath else 'SP'} Selection -------")
+        print(ap.statistics_str())
+        print("------------------------------")
 
     state = ProofState(params, cnf, silent, indexed)
     res = state.saturate()
@@ -289,9 +292,6 @@ if __name__ == '__main__':
             print("# SZS output end Saturation")
             disableDerivationOutput()
     print(state.statisticsStr())
-    if alternatingPath or simplePath:
-        print("# ------- AP Selection -------")
-        print(ap.statistics_str())
     # We use the resources interface to get and print the CPU time
     resources = getrusage(RUSAGE_SELF)
     print("# -------- CPU Time ---------")
