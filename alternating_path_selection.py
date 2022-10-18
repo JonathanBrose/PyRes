@@ -16,7 +16,7 @@ def reset_inference_lits(clause):
 class AlternatingPathSelection(SimplePathSelection):
 
     @property
-    def selected_unique(self):
+    def levels_unique(self):  # duplicates are now possible in levels, therefore overwrite this method
         already_added = []
         unique_levels = []
         for level in self.levels:

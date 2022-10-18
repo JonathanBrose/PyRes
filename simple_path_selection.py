@@ -3,21 +3,20 @@ import unittest
 from lexer import Lexer
 from clausesets import ClauseSet, IndexedClauseSet
 from unification import mgu
-from copy import deepcopy as copy
+
 
 class SimplePathSelection(object):
     """
-    This class initializes and controls the clause-selection with Alternating Path
+    This class is used to setup a simplified Axiom selection, inspired by alternating path selection
     """
     limit = float('inf')
     start_selected_by = "negated_conjecture"
 
-    def __init__(self, initial_clauses, limit=None,
-                 indexed=False, equality_clauses=[]):
+    def __init__(self, initial_clauses, limit=None, indexed=False, equality_clauses=[]):
         self.clause_count = len(initial_clauses)
         if limit is not None:
             self.limit = limit  # limit how deep the selection is run
-        # the selected clauses are stored as nested lists, one list for each relevance level.
+
         self.selected = [c for c in initial_clauses if c.type in ["negated_conjecture"]]
         # if there is no conjecture, start from hypotheses instead
         if not self.selected:
@@ -27,23 +26,24 @@ class SimplePathSelection(object):
         if not self.selected:
             self.selected = [c for c in initial_clauses]
             self.start_selected_by = "all"
-        # all the other clauses like axioms go into the unprocessed set.
 
-        self.levels = [
-            [c for c in self.selected]
+        self.levels = [  # the clauses are stored as nested lists to model the relevance levels.
+            [c for c in self.selected]  # starting clauses are level 0
         ]
-        unprocessed = [c for c in initial_clauses if c not in self.levels[0]]
+        # all clauses except the starting ones go into the unprocessed set.
+        unprocessed = [c for c in initial_clauses if c not in self.selected]
         self.unprocessed = ClauseSet(unprocessed) if not indexed else IndexedClauseSet(unprocessed)
 
     @property
     def depth(self):
         """
         The current relevance depth of the algorithm.
+        The relevance depth is the max path length
         """
-        return len(self.selected_unique) - 1
+        return len(self.levels_unique) - 1
 
     @property
-    def selected_unique(self):
+    def levels_unique(self):
         return self.levels
 
     def find_next_paths(self, clause):
@@ -96,7 +96,7 @@ class SimplePathSelection(object):
         return textwrap.dedent(f"""\
             # All clauses        : {self.clause_count}
             # Selected clauses   : {len(self.selected)}
-            # Selected per level : {[len(level) for level in self.selected_unique]}
+            # Selected per level : {[len(level) for level in self.levels_unique]}
             # All per level      : {[len(level) for level in self.levels]}
             # Max path depth     : {self.depth}
             # Depth limit        : {self.limit}
