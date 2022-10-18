@@ -126,13 +126,14 @@ indexed          = False
 proofObject      = False
 alternatingPath  = False
 simplePath       = False
+ap_indexed = False
 alternatingPathLimit = None
 
 def processOptions(opts):
     """
     Process the options given
     """
-    global silent, indexed, suppressEqAxioms, proofObject, alternatingPath, alternatingPathLimit, simplePath
+    global silent, indexed, suppressEqAxioms, proofObject, alternatingPath, alternatingPathLimit, simplePath, ap_indexed
 
     params = SearchParams()
     for opt, optarg in opts:
@@ -148,6 +149,8 @@ def processOptions(opts):
             proofObject = True
         elif opt=="-i" or opt == "--index":
             indexed = True
+        elif opt=="-I" or opt == "--selection-index":
+            ap_indexed = True
         elif opt=="-t" or opt == "--delete-tautologies":
             params.delete_tautologies = True
         elif opt=="-f" or opt == "--forward-subsumption":
@@ -184,7 +187,6 @@ def processOptions(opts):
                     alternatingPathLimit = int(optarg)
                 except ValueError:
                     pass
-
     return params
 
 def timeoutHandler(sign, frame):
@@ -219,7 +221,7 @@ if __name__ == '__main__':
 
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:],
-                                       "hsVpitfbH:n:SA:D:",
+                                       "hsVpitfbH:n:SA:D:I",
                                        ["help",
                                         "silent",
                                         "version",
@@ -232,7 +234,8 @@ if __name__ == '__main__':
                                         "neg-lit-selection=",
                                         "supress-eq-axioms",
                                         "alternating-path-selection=",
-                                        "simple-path-selection="])
+                                        "simple-path-selection=",
+                                        "selection-index"])
     except getopt.GetoptError as err:
         print(sys.argv[0],":", err)
         sys.exit(1)
@@ -250,7 +253,7 @@ if __name__ == '__main__':
 
     if alternatingPath or simplePath:
         Selection = AlternatingPathSelection if alternatingPath else SimplePathSelection
-        ap = Selection(cnf.clauses, alternatingPathLimit, indexed=indexed, equality_clauses=equality_clauses)
+        ap = Selection(cnf.clauses, alternatingPathLimit, indexed=ap_indexed, equality_clauses=equality_clauses)
         cnf = ClauseSet(ap.select_clauses())
 
     state = ProofState(params, cnf, silent, indexed)
