@@ -34,7 +34,6 @@ class AlternatingPathSelection(SimplePathSelection):
         inference_lits = [lit for lit in clause.literals if lit.isInferenceLit()]
         # paths can't start from the same literal again.
         for lit1 in inference_lits:
-            # partners = self.unprocessed.getResolutionLiterals(lit1)
             unprocessed_partners = self.unprocessed.getResolutionLiterals(lit1)
             partners = {(cl, cl.getLiteral(li), li) for cl, li in unprocessed_partners}
 
@@ -47,7 +46,7 @@ class AlternatingPathSelection(SimplePathSelection):
                     continue  # non complementary pairs are never in an AP
                 sigma = mgu(lit1.atom, lit2.atom)
                 if sigma is None:
-                    continue  # if the complementary lits are not unifiable there is not AP with them.
+                    continue  # if the complementary lits are not unifiable there is no AP with them.
 
                 # add to selection if not already selected
                 if clause2 not in self.selected:
