@@ -257,7 +257,13 @@ if __name__ == '__main__':
         cnf = ClauseSet(ap.select_clauses())
         print(f"# ------- {'AP' if alternatingPath else 'SP'} Selection -------")
         print(ap.statistics_str())
-        print("------------------------------")
+        resources = getrusage(RUSAGE_SELF)
+        print("# -------- CPU Time ---------")
+        print("# Selection User time  : %.3f s"%(resources.ru_utime,))
+        print("# Selection System time: %.3f s"%(resources.ru_stime,))
+        print("# Selection Total time : %.3f s"%(resources.ru_utime+resources.ru_stime,))
+        print("# ---------------------------")
+        print()
 
     state = ProofState(params, cnf, silent, indexed)
     res = state.saturate()
@@ -297,5 +303,4 @@ if __name__ == '__main__':
     print("# -------- CPU Time ---------")
     print("# User time          : %.3f s"%(resources.ru_utime,))
     print("# System time        : %.3f s"%(resources.ru_stime,))
-    print("# Total time         : %.3f s"%(resources.ru_utime+
-                                           resources.ru_stime,))
+    print("# Total time         : %.3f s"%(resources.ru_utime+resources.ru_stime,))
