@@ -246,18 +246,17 @@ class TestAlternatingPathSelection(unittest.TestCase):
         """
         Test if the initialization works as expected
         """
-        def stringify(clauses):
-            return [str(c) for c in clauses]
+
 
         ap = AlternatingPathSelection(self.problem1.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(stringify(self.problem1.clauses[-1:]), stringify(ap.levels[0]))
-        self.assertEqual(stringify(self.problem1.clauses[:-1]), stringify(ap.unprocessed.clauses))
+        self.assertEqual(l_str(self.problem1.clauses[-1:]), l_str(ap.levels[0]))
+        self.assertEqual(l_str(self.problem1.clauses[:-1]), l_str(ap.unprocessed.clauses))
 
         ap = AlternatingPathSelection(self.problem2.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(stringify(self.problem2.clauses[-1:]), stringify(ap.levels[0]))
-        self.assertEqual(stringify(self.problem2.clauses[:-1]), stringify(ap.unprocessed.clauses))
+        self.assertEqual(l_str(self.problem2.clauses[-1:]), l_str(ap.levels[0]))
+        self.assertEqual(l_str(self.problem2.clauses[:-1]), l_str(ap.unprocessed.clauses))
 
         # make sure that setting the limit works
         self.assertEqual(float('inf'), ap.limit)
@@ -271,12 +270,12 @@ class TestAlternatingPathSelection(unittest.TestCase):
         ap = AlternatingPathSelection(self.problem1.clauses)
         selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
-        self.assertCountEqual(self.problem1.clauses, selection)
+        self.assertCountEqual(l_str(self.problem1.clauses), l_str(selection))
 
         ap = AlternatingPathSelection(self.problem2.clauses)
         selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
-        self.assertCountEqual(self.problem2.clauses, selection)
+        self.assertCountEqual(l_str(self.problem2.clauses), l_str(selection))
 
         ap = AlternatingPathSelection(self.problem3.clauses)
         selection = ap.select_clauses()
@@ -285,11 +284,11 @@ class TestAlternatingPathSelection(unittest.TestCase):
         for clause in self.problem3.clauses[-2:]:
             self.assertNotIn(clause, selection)
         # everything else should be selected
-        self.assertCountEqual(self.problem3.clauses[:-2], selection)
+        self.assertCountEqual(l_str(self.problem3.clauses[:-2]), l_str(selection))
 
         ap = AlternatingPathSelection(self.problem4.clauses)
         selection = ap.select_clauses()
-        self.assertCountEqual(self.problem4.clauses, selection)
+        self.assertCountEqual(l_str(self.problem4.clauses), l_str(selection))
 
     def test_indexed_selection(self):
         ap = AlternatingPathSelection(self.problem3.clauses, indexed=True)
@@ -299,11 +298,11 @@ class TestAlternatingPathSelection(unittest.TestCase):
         for clause in self.problem3.clauses[-2:]:
             self.assertNotIn(clause, selection)
             # everything else should be selected
-        self.assertCountEqual(self.problem3.clauses[:-2], selection)
+        self.assertCountEqual(l_str(self.problem3.clauses[:-2]), l_str(selection))
 
         ap = AlternatingPathSelection(self.problem4.clauses, indexed=True)
         selection = ap.select_clauses()
-        self.assertCountEqual(self.problem4.clauses, selection)
+        self.assertCountEqual(l_str(self.problem4.clauses), l_str(selection))
 
     def test_selection_depth(self):
         ap = AlternatingPathSelection(self.problem1.clauses)
@@ -352,13 +351,16 @@ class TestAlternatingPathSelection(unittest.TestCase):
             self.assertEqual(expected_len, len(selection))
 
             expected = [self.problem2.clauses[i] for i in indices[:expected_len]]
-            self.assertEqual(expected, selection)
+            self.assertEqual(l_str(expected), l_str(selection))
             # also checks that elements are ordered by relevance
 
         assert_limit(1, 2)
         assert_limit(5, 6)
         assert_limit(8, 9)
         assert_limit(20, len(indices))
+def l_str(l):
+    return [str(c) for c in l]
+
 
 if __name__ == '__main__':
     unittest.main()

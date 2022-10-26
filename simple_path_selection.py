@@ -3,6 +3,7 @@ import unittest
 from lexer import Lexer
 from clausesets import ClauseSet, IndexedClauseSet
 from unification import mgu
+from copy import deepcopy
 
 
 class SimplePathSelection(object):
@@ -20,7 +21,7 @@ class SimplePathSelection(object):
         self.selected = [c for c in initial_clauses if c.type in ["negated_conjecture"]]
         # if there is no conjecture, start from hypotheses instead
         if not self.selected:
-            self.selected = [c for c in initial_clauses if c.type in ["plain"] and c not in equality_clauses]
+            self.selected = [deepcopy(c) for c in initial_clauses if c.type in ["plain"] and c not in equality_clauses]
             self.start_selected_by = "plain"
         # if there are no obvious clauses to start from, select everything
         if not self.selected:
@@ -31,7 +32,7 @@ class SimplePathSelection(object):
             [c for c in self.selected]  # starting clauses are level 0
         ]
         # all clauses except the starting ones go into the unprocessed set.
-        unprocessed = [c for c in initial_clauses if c not in self.selected]
+        unprocessed = [deepcopy(c) for c in initial_clauses if c not in self.selected]
         self.unprocessed = ClauseSet(unprocessed) if not indexed else IndexedClauseSet(unprocessed)
 
     @property
@@ -101,6 +102,7 @@ class SimplePathSelection(object):
             # Max path depth     : {self.depth}
             # Depth limit        : {self.limit}
             # 0-level selected by: {self.start_selected_by}""")
+
 
 
 class TestSimplePathSelection(unittest.TestCase):
@@ -275,19 +277,20 @@ class TestSimplePathSelection(unittest.TestCase):
         self.problem4 = ClauseSet()
         self.problem4.parse(Lexer(self.spec4))
 
+
     def test_initialization(self):
         """
         Test if the initialization works as expected
         """
         ap = SimplePathSelection(self.problem1.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(self.problem1.clauses[-1:], ap.levels[0])
-        self.assertEqual(self.problem1.clauses[:-1], ap.unprocessed.clauses)
+        self.assertEqual(l_str(self.problem1.clauses[-1:]), l_str(ap.levels[0]))
+        self.assertEqual(l_str(self.problem1.clauses[:-1]), l_str(ap.unprocessed.clauses))
 
         ap = SimplePathSelection(self.problem2.clauses)
         # check that the initialisation is working correctly, conjecture and hypotheses should be selected.
-        self.assertEqual(self.problem2.clauses[-1:], ap.levels[0])
-        self.assertEqual(self.problem2.clauses[:-1], ap.unprocessed.clauses)
+        self.assertEqual(l_str(self.problem2.clauses[-1:]), l_str(ap.levels[0]))
+        self.assertEqual(l_str(self.problem2.clauses[:-1]), l_str(ap.unprocessed.clauses))
 
         # make sure that setting the limit works
         self.assertEqual(float('inf'), ap.limit)
@@ -301,30 +304,30 @@ class TestSimplePathSelection(unittest.TestCase):
         ap = SimplePathSelection(self.problem1.clauses)
         selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
-        self.assertCountEqual(self.problem1.clauses, selection)
+        self.assertCountEqual(l_str(self.problem1.clauses), l_str(selection))
 
         ap = SimplePathSelection(self.problem2.clauses)
         selection = ap.select_clauses()
         # check that all clauses of the problem were selected.
-        self.assertCountEqual(self.problem2.clauses, selection)
+        self.assertCountEqual(l_str(self.problem2.clauses), l_str(selection))
 
         ap = SimplePathSelection(self.problem3.clauses)
         selection = ap.select_clauses()
-        self.assertCountEqual(self.problem3.clauses, selection)
+        self.assertCountEqual(l_str(self.problem3.clauses), l_str(selection))
 
         ap = SimplePathSelection(self.problem4.clauses)
         selection = ap.select_clauses()
-        self.assertCountEqual(self.problem4.clauses, selection)
+        self.assertCountEqual(l_str(self.problem4.clauses), l_str(selection))
 
     def test_indexed_selection(self):
         ap = SimplePathSelection(self.problem3.clauses, indexed=True)
         selection = ap.select_clauses()
         selection = ap.select_clauses()
-        self.assertCountEqual(self.problem3.clauses, selection)
+        self.assertCountEqual(l_str(self.problem3.clauses), l_str(selection))
 
         ap = SimplePathSelection(self.problem4.clauses, indexed=True)
         selection = ap.select_clauses()
-        self.assertCountEqual(self.problem4.clauses, selection)
+        self.assertCountEqual(l_str(self.problem4.clauses), l_str(selection))
 
     def test_selection_depth(self):
         ap = SimplePathSelection(self.problem1.clauses)
@@ -373,14 +376,15 @@ class TestSimplePathSelection(unittest.TestCase):
             self.assertEqual(expected_len, len(selection))
 
             expected = [self.problem2.clauses[i] for i in indices[:expected_len]]
-            self.assertEqual(expected, selection)
+            self.assertEqual(l_str(expected), l_str(selection))
             # also checks that elements are ordered by relevance
 
         assert_limit(1, 2)
         assert_limit(5, 6)
         assert_limit(8, 9)
         assert_limit(20, len(indices))
-
+def l_str(l):
+    return [str(i) for i in l]
 
 if __name__ == '__main__':
     unittest.main()
