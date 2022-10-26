@@ -104,15 +104,15 @@ class ResolutionIndex(object):
         (counting from 0).
         """
         if not topsymbol in idx:
-            idx[topsymbol] = set()
-        idx[topsymbol].add(payload)
+            idx[topsymbol] = {}
+        idx[topsymbol][payload] = None
 
     def removeData(self, idx, topsymbol, payload):
         """
         Remove a payload indexed at topsymbol from the provided
         index.
         """
-        idx[topsymbol].remove(payload)
+        idx[topsymbol].pop(payload)
 
     def insertClause(self, clause):
         """

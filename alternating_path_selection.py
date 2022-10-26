@@ -35,7 +35,7 @@ class AlternatingPathSelection(SimplePathSelection):
         # paths can't start from the same literal again.
         for lit1 in inference_lits:
             unprocessed_partners = self.unprocessed.getResolutionLiterals(lit1)
-            partners = {(cl, cl.getLiteral(li), li) for cl, li in unprocessed_partners}
+            partners = {(cl, cl.getLiteral(li), li): None for cl, li in unprocessed_partners}
 
             for clause2, lit2, lit2_i in partners:
                 if not lit2.isInferenceLit():

@@ -49,7 +49,7 @@ class SimplePathSelection(object):
     def find_next_paths(self, clause):
         for lit1 in clause.literals:
             unprocessed_partners = self.unprocessed.getResolutionLiterals(lit1)
-            partners = {(cl, cl.getLiteral(li)) for cl, li in unprocessed_partners}
+            partners = {(cl, cl.getLiteral(li)): None for cl, li in unprocessed_partners}
 
             for clause2, lit2 in partners:
                 if lit1.isNegative() == lit2.isNegative():
